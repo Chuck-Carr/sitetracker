@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth/session"
 import { Sidebar } from "@/components/layout/sidebar"
 import { MobileHeader } from "@/components/layout/mobile-header"
+import { BottomNav } from "@/components/layout/bottom-nav"
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
@@ -35,6 +36,9 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           {children}
         </main>
       </div>
+
+      {/* Bottom tab bar — mobile/tablet only. Pure anchor links, no JS needed. */}
+      <BottomNav />
     </div>
   )
 }

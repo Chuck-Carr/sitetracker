@@ -4,7 +4,7 @@ import { decryptSession } from "@/lib/auth/session"
 const PUBLIC_PATHS = ["/login", "/register"]
 const API_PATHS = ["/api"]
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Always allow public and API paths through
