@@ -67,7 +67,7 @@ export default function RegisterPage() {
           )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" className="w-full h-11 text-base" disabled={pending}>
           {pending ? "Creating account…" : "Create account"}
         </Button>
       </form>

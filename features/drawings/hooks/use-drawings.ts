@@ -144,8 +144,7 @@ export function useDrawingSheetWithUrl(projectId: string, sheetId: string) {
     queryKey: drawingKeys.sheet(projectId, sheetId),
     queryFn: () => fetchDrawingSheetWithUrl(projectId, sheetId),
     enabled: !!projectId && !!sheetId,
-    // Presigned URLs expire at 15 min — refetch at 12 min to stay ahead
-    staleTime: 12 * 60 * 1000,
-    refetchInterval: 12 * 60 * 1000,
+    // Proxy URL is permanent — no need to refresh
+    staleTime: Infinity,
   })
 }

@@ -73,7 +73,7 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
     return () => el.removeEventListener("wheel", handleWheel)
   }, [handleWheel])
 
-  // Drag-to-pan (when pan tool is active)
+  // Mouse drag-to-pan
   const dragStart = useRef<{ mouseX: number; mouseY: number; panX: number; panY: number } | null>(null)
 
   function handleMouseDown(e: React.MouseEvent) {
@@ -90,6 +90,62 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
 
   function handleMouseUp() {
     dragStart.current = null
+  }
+
+  // Touch support: single-finger pan, two-finger pinch-to-zoom
+  const touchState = useRef<{
+    lastX: number
+    lastY: number
+    panX: number
+    panY: number
+    lastDist: number
+    zoom: number
+  } | null>(null)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    e.preventDefault()
+    if (e.touches.length === 1) {
+      touchState.current = {
+        lastX: e.touches[0].clientX,
+        lastY: e.touches[0].clientY,
+        panX,
+        panY,
+        lastDist: 0,
+        zoom,
+      }
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      const dist = Math.hypot(dx, dy)
+      touchState.current = { lastX: 0, lastY: 0, panX, panY, lastDist: dist, zoom }
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    e.preventDefault()
+    if (!touchState.current) return
+
+    if (e.touches.length === 1) {
+      // Single-finger pan — always active regardless of tool on touch devices
+      const dx = e.touches[0].clientX - touchState.current.lastX
+      const dy = e.touches[0].clientY - touchState.current.lastY
+      setPan(touchState.current.panX + dx, touchState.current.panY + dy)
+    } else if (e.touches.length === 2) {
+      // Two-finger pinch zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      const dist = Math.hypot(dx, dy)
+      if (touchState.current.lastDist > 0) {
+        const scale = dist / touchState.current.lastDist
+        const next = Math.max(0.1, Math.min(5, touchState.current.zoom * scale))
+        setZoom(next)
+      }
+      touchState.current.lastDist = dist
+    }
+  }
+
+  function handleTouchEnd() {
+    touchState.current = null
   }
 
   const { width: renderWidth, height: renderHeight } = computeRenderedSize(
@@ -123,6 +179,9 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Scrollable inner — positioned by pan transform */}
         <div

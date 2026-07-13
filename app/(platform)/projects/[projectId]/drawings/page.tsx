@@ -22,7 +22,7 @@ export default async function DrawingsPage({
   if (!project) notFound()
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Breadcrumb */}
       <div className="mb-1 text-sm text-slate-400">
         <Link href="/projects" className="hover:text-slate-600">Projects</Link>

@@ -51,7 +51,7 @@ export default function LoginPage() {
           )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" className="w-full h-11 text-base" disabled={pending}>
           {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>

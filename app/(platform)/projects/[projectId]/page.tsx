@@ -16,14 +16,14 @@ export default async function ProjectPage({
   if (!project) notFound()
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
         {project.number && <p className="text-sm text-slate-500">#{project.number}</p>}
         {project.address && <p className="mt-1 text-sm text-slate-500">{project.address}</p>}
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <p className="text-xs text-slate-500 uppercase tracking-wide">Total devices</p>
           <p className="mt-1 text-3xl font-bold text-slate-900">{project._count.devices}</p>

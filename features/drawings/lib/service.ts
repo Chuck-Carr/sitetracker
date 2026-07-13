@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db/prisma"
 import { tenantScope, projectScope } from "@/lib/db/tenancy"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import { getS3Client, S3_BUCKET } from "@/lib/storage/s3-client"
-import { createPresignedDownloadUrl } from "@/lib/storage/presigned-urls"
 import { extractPDFMetadata, defaultSheetNumber } from "./pdf-parser"
 import type { CompleteDrawingSetUploadInput } from "@/features/drawings/schemas"
 
@@ -117,7 +116,8 @@ export async function getDrawingSheet(companyId: string, projectId: string, shee
 }
 
 /**
- * Returns the drawing sheet plus a short-lived presigned URL for the PDF.
+ * Returns the drawing sheet plus the proxy URL for streaming the PDF.
+ * Using the proxy avoids CORS issues on all devices and environments.
  */
 export async function getDrawingSheetWithUrl(
   companyId: string,
@@ -127,10 +127,8 @@ export async function getDrawingSheetWithUrl(
   const sheet = await getDrawingSheet(companyId, projectId, sheetId)
   if (!sheet) return null
 
-  const pdfUrl = await createPresignedDownloadUrl({
-    key: sheet.drawingSet.storageKey,
-    expiresInSeconds: 900,
-  })
+  // Proxy URL — same-origin, no CORS, auth-gated, streams directly from S3
+  const pdfUrl = `/api/projects/${projectId}/drawing-sheets/${sheetId}/pdf`
 
   return { sheet, pdfUrl }
 }
