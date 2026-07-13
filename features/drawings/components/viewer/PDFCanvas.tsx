@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef } from "react"
 import type * as PDFJSType from "pdfjs-dist"
 
-// Worker is set once at module load, not inside the component
 let pdfjsLib: typeof PDFJSType | null = null
 
 async function getPDFJS(): Promise<typeof PDFJSType> {
@@ -15,15 +14,10 @@ async function getPDFJS(): Promise<typeof PDFJSType> {
 }
 
 interface PDFCanvasProps {
-  /** Short-lived presigned URL — refreshed by the parent every 12 min */
   pdfUrl: string
-  /** 0-based page index within the PDF document */
   pageIndex: number
-  /** CSS pixel width to render at (computed from widthPoints × zoom) */
   renderWidth: number
-  /** CSS pixel height to render at */
   renderHeight: number
-  /** Called when the canvas is ready and has rendered */
   onReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -35,68 +29,96 @@ export function PDFCanvas({
   onReady,
 }: PDFCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Incrementing ID — every new render call gets a unique ID.
+  // Any async step that sees a mismatch knows it has been superseded and aborts.
+  const renderIdRef = useRef(0)
   const renderTaskRef = useRef<PDFJSType.RenderTask | null>(null)
   const docRef = useRef<PDFJSType.PDFDocumentProxy | null>(null)
+  const lastUrlRef = useRef<string>("")
 
-  const render = useCallback(async () => {
-    const canvas = canvasRef.current
-    if (!canvas || renderWidth <= 0 || renderHeight <= 0) return
+  // Single effect covering all dependencies — eliminates the race condition
+  // that occurred when TWO separate effects both called render() on mount.
+  useEffect(() => {
+    if (!canvasRef.current || renderWidth <= 0 || renderHeight <= 0) return
+    // Capture a stable non-null reference for the async closure
+    const canvas: HTMLCanvasElement = canvasRef.current
 
-    // Cancel any in-flight render
-    renderTaskRef.current?.cancel()
+    const myId = ++renderIdRef.current
 
-    try {
-      const pdfjs = await getPDFJS()
-
-      // Load (or reuse) the PDF document.
-      // withCredentials: true sends the session cookie to the proxy endpoint.
-      if (!docRef.current) {
-        docRef.current = await pdfjs.getDocument({
-          url: pdfUrl,
-          withCredentials: true,
-        }).promise
+    async function doRender() {
+      // ── Step 1: Cancel the previous render and WAIT for it to release the canvas.
+      // Calling cancel() is not enough — we must await the promise so PDF.js
+      // fully relinquishes the canvas before we call render() again.
+      const prevTask = renderTaskRef.current
+      renderTaskRef.current = null
+      if (prevTask) {
+        prevTask.cancel()
+        try { await prevTask.promise } catch { /* cancellation throws — expected */ }
       }
 
-      const page = await docRef.current.getPage(pageIndex + 1) // PDF.js is 1-based
+      // Bail if a newer render has already been scheduled
+      if (myId !== renderIdRef.current) return
 
-      const dpr = window.devicePixelRatio || 1
-      const viewport = page.getViewport({
-        scale: (renderWidth / page.getViewport({ scale: 1 }).width) * dpr,
-      })
+      // ── Step 2: Discard cached document if the URL changed
+      if (lastUrlRef.current !== pdfUrl) {
+        docRef.current?.cleanup()
+        docRef.current = null
+        lastUrlRef.current = pdfUrl
+      }
 
-      // Size the canvas in physical pixels, display at CSS size
-      canvas.width = viewport.width
-      canvas.height = viewport.height
-      canvas.style.width = `${renderWidth}px`
-      canvas.style.height = `${renderHeight}px`
+      try {
+        const pdfjs = await getPDFJS()
+        if (myId !== renderIdRef.current) return
 
-      // pdfjs-dist v6: render() requires canvas element; canvasContext is optional
-      renderTaskRef.current = page.render({ canvas, viewport })
-      await renderTaskRef.current.promise
+        // Load (or reuse) the document — withCredentials sends the session cookie
+        if (!docRef.current) {
+          docRef.current = await pdfjs.getDocument({
+            url: pdfUrl,
+            withCredentials: true,
+          }).promise
+        }
+        if (myId !== renderIdRef.current) return
 
-      onReady?.(canvas)
-    } catch (err) {
-      // Ignore cancelled renders; log others
-      if ((err as Error).message !== "Rendering cancelled") {
+        const page = await docRef.current.getPage(pageIndex + 1) // PDF.js is 1-based
+        if (myId !== renderIdRef.current) return
+
+        // ── Step 3: Resize canvas and render
+        const dpr = window.devicePixelRatio || 1
+        const baseViewport = page.getViewport({ scale: 1 })
+        const viewport = page.getViewport({
+          scale: (renderWidth / baseViewport.width) * dpr,
+        })
+
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        canvas.style.width = `${renderWidth}px`
+        canvas.style.height = `${renderHeight}px`
+
+        const task = page.render({ canvas, viewport })
+        renderTaskRef.current = task
+        await task.promise
+
+        if (myId !== renderIdRef.current) return // Stale — don't call onReady
+        onReady?.(canvas)
+      } catch (err: unknown) {
+        // RenderingCancelledException is normal — ignore it
+        if (
+          err instanceof Error &&
+          (err.name === "RenderingCancelledException" ||
+            err.message === "Rendering cancelled")
+        ) return
         console.error("[PDFCanvas] render error", err)
       }
     }
+
+    doRender()
   }, [pdfUrl, pageIndex, renderWidth, renderHeight, onReady])
 
-  // Re-render whenever the URL, page, or size changes
-  useEffect(() => {
-    // When the URL changes (presigned URL refresh), clean up the cached doc
-    docRef.current?.cleanup()
-    docRef.current = null
-    render()
-  }, [pdfUrl, pageIndex])
-
-  useEffect(() => {
-    render()
-  }, [renderWidth, renderHeight])
-
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      renderIdRef.current++ // Invalidate any in-flight render
       renderTaskRef.current?.cancel()
       docRef.current?.cleanup()
     }

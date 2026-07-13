@@ -1,8 +1,22 @@
 import { AuthError } from "@/lib/auth/permissions"
 import { ZodError } from "zod"
 
+/**
+ * JSON.stringify replacer that converts BigInt to string.
+ * Prisma returns BigInt for fields like fileSizeBytes and Response.json()
+ * throws "Do not know how to serialize a BigInt" without this.
+ */
+function serialize(data: unknown): string {
+  return JSON.stringify(data, (_, value) =>
+    typeof value === "bigint" ? value.toString() : value
+  )
+}
+
 export function ok<T>(data: T, status = 200): Response {
-  return Response.json({ success: true, data }, { status })
+  return new Response(serialize({ success: true, data }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  })
 }
 
 export function created<T>(data: T): Response {
