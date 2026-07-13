@@ -22,6 +22,7 @@ export default async function DrawingsPage({
   if (!project) notFound()
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="p-4 md:p-8">
       {/* Breadcrumb */}
       <div className="mb-1 text-sm text-slate-400">
@@ -35,6 +36,7 @@ export default async function DrawingsPage({
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Drawings</h1>
 
       <DrawingsClient projectId={projectId} initialDrawingSets={drawingSets} />
+    </div>
     </div>
   )
 }

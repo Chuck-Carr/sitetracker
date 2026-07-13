@@ -9,6 +9,7 @@ export default async function ProjectsPage() {
   const projects = await listProjects(session.companyId)
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -18,6 +19,7 @@ export default async function ProjectsPage() {
       </div>
 
       <ProjectsClient initialProjects={projects} />
+    </div>
     </div>
   )
 }

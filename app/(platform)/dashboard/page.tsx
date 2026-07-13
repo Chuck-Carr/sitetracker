@@ -4,6 +4,7 @@ export default async function DashboardPage() {
   const session = await getSession()
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="p-4 md:p-8">
       <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
       <p className="mt-1 text-slate-500">Welcome back, {session?.name}</p>
@@ -13,6 +14,7 @@ export default async function DashboardPage() {
           Dashboard metrics and activity feed will appear here in Phase 8.
         </p>
       </div>
+    </div>
     </div>
   )
 }

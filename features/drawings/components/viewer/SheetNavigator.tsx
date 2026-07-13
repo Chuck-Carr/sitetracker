@@ -8,9 +8,10 @@ interface SheetNavigatorProps {
   projectId: string
   drawingSetId: string
   activeSheetId: string
+  onSheetSelect?: () => void
 }
 
-export function SheetNavigator({ projectId, drawingSetId, activeSheetId }: SheetNavigatorProps) {
+export function SheetNavigator({ projectId, drawingSetId, activeSheetId, onSheetSelect }: SheetNavigatorProps) {
   const { data: sheets = [], isLoading } = useDrawingSheets(projectId, drawingSetId)
 
   return (
@@ -24,9 +25,10 @@ export function SheetNavigator({ projectId, drawingSetId, activeSheetId }: Sheet
           <div className="px-4 py-3 text-xs text-slate-400">Loading…</div>
         ) : (
           sheets.map((sheet) => (
-            <Link
+              <Link
               key={sheet.id}
               href={`/projects/${projectId}/drawings/${sheet.id}`}
+              onClick={onSheetSelect}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 text-sm transition-colors",
                 sheet.id === activeSheetId

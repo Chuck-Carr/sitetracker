@@ -16,8 +16,8 @@ export default async function DrawingViewerPage({
   if (!result) notFound()
 
   return (
-    // Full height, no padding — the viewer needs every pixel
-    <div className="h-full flex flex-col">
+    // Absolute fill — viewer takes the entire main content area, no scrolling
+    <div className="absolute inset-0">
       <DrawingViewerClient
         projectId={projectId}
         sheet={result.sheet}

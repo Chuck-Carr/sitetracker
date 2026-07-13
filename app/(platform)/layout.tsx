@@ -9,16 +9,21 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <div className="flex h-full">
-      {/* Desktop/tablet sidebar — hidden on mobile */}
-      <div className="hidden md:flex">
+      {/* Sidebar — only on large screens (1024px+). iPads in portrait get the mobile header. */}
+      <div className="hidden lg:flex">
         <Sidebar />
       </div>
 
-      {/* Mobile: fixed top bar + hamburger drawer */}
+      {/* Mobile/tablet top bar with hamburger */}
       <MobileHeader />
 
-      {/* Main content — offset by mobile header height on small screens */}
-      <main className="flex-1 overflow-auto bg-slate-50 pt-14 md:pt-0 min-w-0">
+      {/*
+        Main content area.
+        - relative + overflow-hidden so the drawing viewer can use absolute inset-0
+        - pt-14 on mobile for the fixed header, removed on lg+
+        - Regular pages add their own overflow-y-auto wrapper
+      */}
+      <main className="flex-1 relative overflow-hidden bg-slate-50 pt-14 lg:pt-0 min-w-0">
         {children}
       </main>
     </div>

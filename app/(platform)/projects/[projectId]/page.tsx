@@ -16,6 +16,7 @@ export default async function ProjectPage({
   if (!project) notFound()
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="p-4 md:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
@@ -46,6 +47,7 @@ export default async function ProjectPage({
           Drawings →
         </Link>
       </div>
+    </div>
     </div>
   )
 }

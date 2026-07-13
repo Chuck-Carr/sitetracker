@@ -27,6 +27,7 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
   const containerRef = useRef<HTMLDivElement>(null)
   const [fitZoom, setFitZoom] = useState(1)
   const [isReady, setIsReady] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const { zoom, panX, panY, setZoom, setPan, activeTool } = useViewerStore()
 
@@ -157,16 +158,11 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar strip */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-700">
-            Sheet {sheet.sheetNumber}
-            {sheet.sheetName && ` — ${sheet.sheetName}`}
-          </span>
-          <span className="text-xs text-slate-400">
-            {Math.round(sheet.widthPoints / 72 * 10) / 10}" × {Math.round(sheet.heightPoints / 72 * 10) / 10}"
-          </span>
-        </div>
+      <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-200 shrink-0 gap-2">
+        <span className="text-sm font-medium text-slate-700 truncate min-w-0">
+          Sheet {sheet.sheetNumber}
+          {sheet.sheetName && <span className="hidden sm:inline"> — {sheet.sheetName}</span>}
+        </span>
         <ViewerToolbar fitZoom={fitZoom} />
       </div>
 
@@ -200,7 +196,7 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
             pageIndex={sheet.pageIndex}
             renderWidth={renderWidth}
             renderHeight={renderHeight}
-            onReady={() => setIsReady(true)}
+            onReady={() => { setIsReady(true); setIsLoading(false) }}
           />
 
           {/* Interactive SVG overlay — never modifies the PDF */}
@@ -208,6 +204,16 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
             {children}
           </OverlayLayer>
         </div>
+
+        {/* Loading overlay — shown while PDF.js is rendering */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-300">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-10 w-10 rounded-full border-4 border-slate-400 border-t-blue-500 animate-spin" />
+              <p className="text-sm text-slate-600 font-medium">Loading drawing…</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

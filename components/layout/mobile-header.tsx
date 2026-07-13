@@ -19,7 +19,7 @@ export function MobileHeader() {
   return (
     <>
       {/* Fixed top bar — mobile only */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center h-14 px-4 bg-slate-900 text-white border-b border-slate-700">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-40 flex items-center h-14 px-4 bg-slate-900 text-white border-b border-slate-700">
         <span className="text-base font-bold flex-1">SiteTracker</span>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -35,11 +35,11 @@ export function MobileHeader() {
         <>
           {/* Backdrop */}
           <div
-            className="md:hidden fixed inset-0 z-40 bg-black/50"
+            className="lg:hidden fixed inset-0 z-40 bg-black/50"
             onClick={() => setOpen(false)}
           />
           {/* Drawer */}
-          <nav className="md:hidden fixed top-14 left-0 bottom-0 z-50 w-64 bg-slate-900 text-slate-100 flex flex-col">
+          <nav className="lg:hidden fixed top-14 left-0 bottom-0 z-50 w-72 bg-slate-900 text-slate-100 flex flex-col">
             <div className="flex-1 py-4 px-3 space-y-1">
               {navItems.map(({ href, label, icon: Icon }) => (
                 <Link
