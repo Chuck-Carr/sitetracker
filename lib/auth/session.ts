@@ -40,6 +40,15 @@ export async function decryptSession(token: string): Promise<SessionPayload | nu
   }
 }
 
+// The Secure flag must only be set when the site is actually served over HTTPS.
+// Using NODE_ENV === "production" is wrong for local production testing (preview mode)
+// which runs on plain HTTP — the browser won't send Secure cookies over HTTP,
+// causing every protected request to fail after login.
+function isSecureContext(): boolean {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
+  return appUrl.startsWith("https://")
+}
+
 export async function createSession(data: Omit<SessionPayload, "expiresAt">): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
   const payload: SessionPayload = { ...data, expiresAt: expiresAt.toISOString() }
@@ -48,7 +57,7 @@ export async function createSession(data: Omit<SessionPayload, "expiresAt">): Pr
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecureContext(),
     expires: expiresAt,
     sameSite: "lax",
     path: "/",
@@ -76,7 +85,7 @@ export async function updateSession(): Promise<void> {
 
   cookieStore.set(SESSION_COOKIE, newToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecureContext(),
     expires: expiresAt,
     sameSite: "lax",
     path: "/",
