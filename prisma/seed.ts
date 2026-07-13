@@ -1,4 +1,6 @@
-import "dotenv/config"
+import * as dotenv from "dotenv"
+dotenv.config({ path: ".env" })
+dotenv.config({ path: ".env.local", override: true })
 import { PrismaClient, UserRole } from "../app/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import bcrypt from "bcryptjs"
@@ -36,27 +38,20 @@ const SYSTEM_DEVICE_TYPES = [
 async function main() {
   console.log("🌱 Seeding database...")
 
-  // Upsert system device types (no companyId — shared across all tenants)
-  for (const dt of SYSTEM_DEVICE_TYPES) {
-    await prisma.deviceType.upsert({
-      where: {
-        companyId_code: {
-          companyId: null as unknown as string, // null companyId = system type
-          code: dt.code,
-        },
-      },
-      update: { name: dt.name, category: dt.category },
-      create: {
-        name: dt.name,
-        code: dt.code,
-        category: dt.category,
-        isSystem: true,
-        companyId: null,
-      },
-    })
-  }
+  // Create system device types — null companyId = shared across all tenants.
+  // skipDuplicates makes this idempotent across seed runs.
+  await prisma.deviceType.createMany({
+    data: SYSTEM_DEVICE_TYPES.map((dt) => ({
+      name: dt.name,
+      code: dt.code,
+      category: dt.category,
+      isSystem: true,
+      companyId: null,
+    })),
+    skipDuplicates: true,
+  })
 
-  console.log(`✅ Upserted ${SYSTEM_DEVICE_TYPES.length} system device types`)
+  console.log(`✅ Seeded ${SYSTEM_DEVICE_TYPES.length} system device types`)
 
   // Create a default seed company and admin for local development
   if (process.env.NODE_ENV !== "production") {

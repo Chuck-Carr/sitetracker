@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import Link from "next/link"
 import { getSession } from "@/lib/auth/session"
 import { getProject } from "@/features/projects/lib/service"
 
@@ -37,10 +38,13 @@ export default async function ProjectPage({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <p className="text-sm text-slate-500">
-          Drawing viewer, device management, and project tools will be available in upcoming phases.
-        </p>
+      <div className="flex gap-3">
+        <Link
+          href={`/projects/${projectId}/drawings`}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-blue-300 transition-colors"
+        >
+          Drawings →
+        </Link>
       </div>
     </div>
   )
