@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "preview": "next build && node --env-file=.env.local .next/standalone/server.js",
+    "preview": "bash scripts/preview.sh",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
