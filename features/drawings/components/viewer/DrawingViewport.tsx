@@ -25,7 +25,8 @@ interface DrawingViewportProps {
  */
 export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [fitZoom, setFitZoom] = useState(1)
+  // null = container size not yet measured; PDF render is gated on this
+  const [fitZoom, setFitZoom] = useState<number | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [renderError, setRenderError] = useState<string | null>(null)
@@ -57,8 +58,13 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
       el.clientWidth,
       el.clientHeight,
     )
-    setFitZoom(z)
-    // Only auto-fit on first mount
+    setFitZoom((prev) => {
+      // Once fitZoom is set, only update if the container size changes significantly.
+      // Small changes (mobile browser chrome showing/hiding) should not re-render the PDF.
+      if (prev !== null && Math.abs(prev - z) < 0.01) return prev
+      return z
+    })
+    // Only set zoom on first mount (when fitZoom was null)
     if (!isReady) {
       setZoom(z)
       setPan(0, 0)
@@ -165,12 +171,15 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
     touchState.current = null
   }
 
-  // Render the PDF at the fit-zoom resolution and hold it constant.
-  // Zoom changes are applied via CSS transform (GPU-accelerated, instant on mobile).
-  // This prevents the render from being cancelled every time zoom changes.
-  const baseWidth = fitZoom > 0 ? Math.round(sheet.widthPoints * fitZoom) : 0
-  const baseHeight = fitZoom > 0 ? Math.round(sheet.heightPoints * fitZoom) : 0
-  const cssScale = fitZoom > 0 ? zoom / fitZoom : 1
+  // Render the PDF at the fit-zoom resolution — computed once after mount.
+  // CSS scale handles all zoom interactions without triggering re-renders.
+  // fitZoom starts as null so the PDF never renders until the container is
+  // measured; this eliminates the fitZoom=1 → fitZoom=real chain that caused
+  // renders to be cancelled before the PDF could finish loading.
+  const resolvedFitZoom = fitZoom ?? 0
+  const baseWidth = resolvedFitZoom > 0 ? Math.round(sheet.widthPoints * resolvedFitZoom) : 0
+  const baseHeight = resolvedFitZoom > 0 ? Math.round(sheet.heightPoints * resolvedFitZoom) : 0
+  const cssScale = resolvedFitZoom > 0 ? zoom / resolvedFitZoom : 1
 
   return (
     <div className="flex flex-col h-full">

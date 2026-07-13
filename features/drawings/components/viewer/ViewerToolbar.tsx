@@ -5,7 +5,7 @@ import { useViewerStore } from "@/features/drawings/hooks/use-viewer-store"
 import { cn } from "@/lib/utils/cn"
 
 interface ViewerToolbarProps {
-  fitZoom: number
+  fitZoom: number | null
 }
 
 export function ViewerToolbar({ fitZoom }: ViewerToolbarProps) {
@@ -60,7 +60,7 @@ export function ViewerToolbar({ fitZoom }: ViewerToolbarProps) {
 
       <button
         title="Reset to fit"
-        onClick={() => resetView(fitZoom)}
+      onClick={() => resetView(fitZoom ?? 1)}
         className="flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
       >
         <Maximize2 size={15} />
