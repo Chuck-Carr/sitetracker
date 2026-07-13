@@ -48,9 +48,13 @@ export function PDFCanvas({
     try {
       const pdfjs = await getPDFJS()
 
-      // Load (or reuse) the PDF document
+      // Load (or reuse) the PDF document.
+      // withCredentials: true sends the session cookie to the proxy endpoint.
       if (!docRef.current) {
-        docRef.current = await pdfjs.getDocument({ url: pdfUrl }).promise
+        docRef.current = await pdfjs.getDocument({
+          url: pdfUrl,
+          withCredentials: true,
+        }).promise
       }
 
       const page = await docRef.current.getPage(pageIndex + 1) // PDF.js is 1-based

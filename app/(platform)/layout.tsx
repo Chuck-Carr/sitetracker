@@ -8,24 +8,33 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   if (!session) redirect("/login")
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar — only on large screens (1024px+). iPads in portrait get the mobile header. */}
-      <div className="hidden lg:flex">
-        <Sidebar />
-      </div>
+    /*
+      Outer: column flex so the mobile header sits above everything as part of
+      normal document flow. This avoids the iOS Safari bug where position:fixed
+      inside overflow:hidden breaks touch events entirely.
+    */
+    <div className="flex flex-col h-full">
 
-      {/* Mobile/tablet top bar with hamburger */}
+      {/* Mobile/tablet top bar — in-flow, not fixed. lg+ hides it. */}
       <MobileHeader />
 
-      {/*
-        Main content area.
-        - relative + overflow-hidden so the drawing viewer can use absolute inset-0
-        - pt-14 on mobile for the fixed header, removed on lg+
-        - Regular pages add their own overflow-y-auto wrapper
-      */}
-      <main className="flex-1 relative overflow-hidden bg-slate-50 pt-14 lg:pt-0 min-w-0">
-        {children}
-      </main>
+      {/* Inner row: sidebar + main */}
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar — only at 1024px+. All iPads get the mobile header above. */}
+        <div className="hidden lg:flex">
+          <Sidebar />
+        </div>
+
+        {/*
+          Main content.
+          - relative + overflow-hidden lets the drawing viewer use absolute inset-0
+          - Regular pages wrap their content in overflow-y-auto
+          - No pt-14 needed — the header is in-flow above this element
+        */}
+        <main className="flex-1 relative overflow-hidden bg-slate-50 min-w-0">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

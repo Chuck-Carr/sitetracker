@@ -45,7 +45,7 @@ export function DrawingViewerClient({ projectId, sheet, pdfUrl }: DrawingViewerC
             className="lg:hidden fixed inset-0 z-30 bg-black/50"
             onClick={() => setSheetNavOpen(false)}
           />
-          <div className="lg:hidden fixed top-14 left-0 bottom-0 z-40 w-64 flex flex-col">
+          <div className="lg:hidden absolute top-0 left-0 bottom-0 z-40 w-64 flex flex-col">
             <SheetNavigator
               projectId={projectId}
               drawingSetId={drawingSetId}
