@@ -27,15 +27,22 @@ export function PDFCanvas({
   renderWidth,
   renderHeight,
   onReady,
-}: PDFCanvasProps) {
+  onError,
+}: PDFCanvasProps & { onError?: (msg: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Incrementing ID — every new render call gets a unique ID.
-  // Any async step that sees a mismatch knows it has been superseded and aborts.
   const renderIdRef = useRef(0)
   const renderTaskRef = useRef<PDFJSType.RenderTask | null>(null)
   const docRef = useRef<PDFJSType.PDFDocumentProxy | null>(null)
   const lastUrlRef = useRef<string>("")
+
+  // Store callbacks in refs so changing them never re-triggers the render effect.
+  // This is the critical fix: onReady was a new lambda on every parent render,
+  // which caused the effect to cancel and restart the PDF render continuously.
+  const onReadyRef = useRef(onReady)
+  const onErrorRef = useRef(onError)
+  useEffect(() => { onReadyRef.current = onReady })
+  useEffect(() => { onErrorRef.current = onError })
 
   // Single effect covering all dependencies — eliminates the race condition
   // that occurred when TWO separate effects both called render() on mount.
@@ -100,20 +107,23 @@ export function PDFCanvas({
         await task.promise
 
         if (myId !== renderIdRef.current) return // Stale — don't call onReady
-        onReady?.(canvas)
+        onReadyRef.current?.(canvas)
       } catch (err: unknown) {
-        // RenderingCancelledException is normal — ignore it
         if (
           err instanceof Error &&
           (err.name === "RenderingCancelledException" ||
             err.message === "Rendering cancelled")
         ) return
-        console.error("[PDFCanvas] render error", err)
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error("[PDFCanvas] render error", msg)
+        onErrorRef.current?.(msg)
       }
     }
 
     doRender()
-  }, [pdfUrl, pageIndex, renderWidth, renderHeight, onReady])
+  // onReady and onError are intentionally NOT in deps — they're read via refs
+  // so changes to them never cancel an in-progress render.
+  }, [pdfUrl, pageIndex, renderWidth, renderHeight])
 
   // Cleanup on unmount
   useEffect(() => {

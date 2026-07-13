@@ -28,6 +28,22 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
   const [fitZoom, setFitZoom] = useState(1)
   const [isReady, setIsReady] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [renderError, setRenderError] = useState<string | null>(null)
+
+  // Stable callbacks — useCallback with [] so the reference never changes.
+  // If these are inline lambdas, they'd be recreated on every render of
+  // DrawingViewport, which would appear in PDFCanvas's effect deps and
+  // cancel the render every time zoom/pan state changes.
+  const handlePDFReady = useCallback(() => {
+    setIsReady(true)
+    setIsLoading(false)
+    setRenderError(null)
+  }, [])
+
+  const handlePDFError = useCallback((msg: string) => {
+    setIsLoading(false)
+    setRenderError(msg)
+  }, [])
 
   const { zoom, panX, panY, setZoom, setPan, activeTool } = useViewerStore()
 
@@ -196,7 +212,8 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
             pageIndex={sheet.pageIndex}
             renderWidth={renderWidth}
             renderHeight={renderHeight}
-            onReady={() => { setIsReady(true); setIsLoading(false) }}
+            onReady={handlePDFReady}
+            onError={handlePDFError}
           />
 
           {/* Interactive SVG overlay — never modifies the PDF */}
@@ -205,12 +222,28 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
           </OverlayLayer>
         </div>
 
-        {/* Loading overlay — shown while PDF.js is rendering */}
-        {isLoading && (
+        {/* Loading overlay */}
+        {isLoading && !renderError && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-300">
             <div className="flex flex-col items-center gap-3">
               <div className="h-10 w-10 rounded-full border-4 border-slate-400 border-t-blue-500 animate-spin" />
               <p className="text-sm text-slate-600 font-medium">Loading drawing…</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error overlay — shows the actual error so we can diagnose on mobile */}
+        {renderError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-200">
+            <div className="mx-4 rounded-xl bg-white border border-red-200 p-6 max-w-sm shadow-lg">
+              <p className="font-semibold text-red-700 mb-2">Failed to load drawing</p>
+              <p className="text-xs text-slate-500 break-all mb-4">{renderError}</p>
+              <button
+                onClick={() => { setRenderError(null); setIsLoading(true) }}
+                className="w-full rounded-lg bg-blue-600 text-white py-2 text-sm font-medium"
+              >
+                Retry
+              </button>
             </div>
           </div>
         )}
