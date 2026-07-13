@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react"
 import { useViewerStore } from "@/features/drawings/hooks/use-viewer-store"
-import { computeRenderedSize, computeFitZoom } from "@/features/drawings/lib/coordinates"
+import { computeFitZoom } from "@/features/drawings/lib/coordinates"
 import { PDFCanvas } from "./PDFCanvas"
 import { OverlayLayer } from "./OverlayLayer"
 import { ViewerToolbar } from "./ViewerToolbar"
@@ -25,8 +25,12 @@ interface DrawingViewportProps {
  */
 export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  // null = container size not yet measured; PDF render is gated on this
+  // null = not yet measured; PDF render is gated on this
   const [fitZoom, setFitZoom] = useState<number | null>(null)
+  // renderZoom = the zoom level the PDF is actually rendered at.
+  // It lags behind the live zoom by ~300ms so the PDF only re-renders
+  // after the user stops zooming, keeping it sharp at every zoom level.
+  const [renderZoom, setRenderZoom] = useState<number | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [renderError, setRenderError] = useState<string | null>(null)
@@ -59,17 +63,31 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
       el.clientHeight,
     )
     setFitZoom((prev) => {
-      // Once fitZoom is set, only update if the container size changes significantly.
-      // Small changes (mobile browser chrome showing/hiding) should not re-render the PDF.
       if (prev !== null && Math.abs(prev - z) < 0.01) return prev
       return z
     })
-    // Only set zoom on first mount (when fitZoom was null)
     if (!isReady) {
       setZoom(z)
       setPan(0, 0)
     }
   }, [sheet.widthPoints, sheet.heightPoints, isReady, setZoom, setPan])
+
+  // Set renderZoom immediately when fitZoom is first computed (no debounce
+  // for the initial load — we want the first render at the correct size).
+  useEffect(() => {
+    if (fitZoom !== null && renderZoom === null) {
+      setRenderZoom(fitZoom)
+    }
+  }, [fitZoom, renderZoom])
+
+  // Debounce subsequent zoom changes so the PDF re-renders at full
+  // resolution after the user stops zooming, not on every tick.
+  useEffect(() => {
+    if (renderZoom === null) return // not initialized yet
+    const timer = setTimeout(() => setRenderZoom(zoom), 300)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom])
 
   useEffect(() => {
     computeFit()
@@ -171,15 +189,14 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
     touchState.current = null
   }
 
-  // Render the PDF at the fit-zoom resolution — computed once after mount.
-  // CSS scale handles all zoom interactions without triggering re-renders.
-  // fitZoom starts as null so the PDF never renders until the container is
-  // measured; this eliminates the fitZoom=1 → fitZoom=real chain that caused
-  // renders to be cancelled before the PDF could finish loading.
-  const resolvedFitZoom = fitZoom ?? 0
-  const baseWidth = resolvedFitZoom > 0 ? Math.round(sheet.widthPoints * resolvedFitZoom) : 0
-  const baseHeight = resolvedFitZoom > 0 ? Math.round(sheet.heightPoints * resolvedFitZoom) : 0
-  const cssScale = resolvedFitZoom > 0 ? zoom / resolvedFitZoom : 1
+  // renderZoom drives the actual canvas resolution; zoom drives the CSS scale.
+  // While the user is zooming, CSS scale gives instant visual feedback.
+  // 300ms after they stop, renderZoom catches up and re-renders at full
+  // resolution — sharp PDF at every zoom level, smooth while interacting.
+  const resolvedRenderZoom = renderZoom ?? 0
+  const baseWidth = resolvedRenderZoom > 0 ? Math.round(sheet.widthPoints * resolvedRenderZoom) : 0
+  const baseHeight = resolvedRenderZoom > 0 ? Math.round(sheet.heightPoints * resolvedRenderZoom) : 0
+  const cssScale = resolvedRenderZoom > 0 ? zoom / resolvedRenderZoom : 1
 
   return (
     <div className="flex flex-col h-full">
