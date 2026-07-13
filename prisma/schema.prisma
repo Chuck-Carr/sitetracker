@@ -1,0 +1,547 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  PROJECT_MANAGER
+  TECHNICIAN
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  INVITED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectMemberRole {
+  MANAGER
+  TECHNICIAN
+  VIEWER
+}
+
+enum AssignmentStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DeviceStatus {
+  NOT_STARTED
+  ROUGH_IN
+  INSTALLED
+  ADDRESSED
+  PROGRAMMED
+  PRE_TESTED
+  FINAL_TESTED
+  AHJ_ACCEPTED
+  NEEDS_ATTENTION
+  ISSUE
+}
+
+enum InstallationStage {
+  ROUGH_IN
+  INSTALLED
+  ADDRESSED
+  PROGRAMMED
+  PRE_TESTED
+  FINAL_TESTED
+  AHJ_ACCEPTED
+}
+
+enum RedlineSessionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  VOIDED
+}
+
+enum RedlineItemType {
+  MOVE_DEVICE
+  ADD_DEVICE
+  DELETE_DEVICE
+  ADDRESS_CHANGE
+  LOOP_CHANGE
+  CIRCUIT_CHANGE
+  CABLE_ROUTE
+  ARROW
+  CLOUD
+  RECTANGLE
+  CIRCLE
+  POLYLINE
+  FREEHAND
+  TEXT
+}
+
+enum ActivityEventType {
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PROJECT_ARCHIVED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  ASSIGNMENT_CREATED
+  ASSIGNMENT_COMPLETED
+  DRAWING_SET_UPLOADED
+  DRAWING_SHEET_UPDATED
+  DEVICE_CREATED
+  DEVICE_UPDATED
+  DEVICE_MOVED
+  DEVICE_DELETED
+  DEVICE_STAGE_COMPLETED
+  DEVICE_NOTE_CREATED
+  REDLINE_SESSION_CREATED
+  REDLINE_SESSION_SUBMITTED
+  REDLINE_SESSION_ACCEPTED
+  REDLINE_SESSION_REJECTED
+}
+
+// ─── Company ──────────────────────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  projects         Project[]
+  deviceTypes      DeviceType[]
+  drawingSets      DrawingSet[]
+  drawingRevisions DrawingRevision[]
+  drawingSheets    DrawingSheet[]
+  devices          Device[]
+  redlineSessions  RedlineSession[]
+  activityEvents   ActivityLogEvent[]
+
+  @@index([slug])
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  companyId    String
+  name         String
+  email        String
+  passwordHash String
+  role         UserRole   @default(TECHNICIAN)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectMemberships  ProjectMember[]
+  assignments         Assignment[]         @relation("AssignedTo")
+  createdAssignments  Assignment[]         @relation("AssignedBy")
+  createdProjects     Project[]
+  uploadedDrawingSets DrawingSet[]
+  uploadedRevisions   DrawingRevision[]
+  createdDevices      Device[]             @relation("CreatedBy")
+  assignedDevices     Device[]             @relation("AssignedTo")
+  completedStages     DeviceStageRecord[]
+  deviceHistoryEvents DeviceHistoryEvent[]
+  deviceNotes         DeviceNote[]
+  projectNotes        ProjectNote[]
+  redlineSessions     RedlineSession[]     @relation("Author")
+  reviewedSessions    RedlineSession[]     @relation("ReviewedBy")
+  activityEvents      ActivityLogEvent[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@index([companyId, role])
+  @@index([companyId, status])
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id          String        @id @default(uuid())
+  companyId   String
+  name        String
+  number      String?
+  description String?
+  address     String?
+  status      ProjectStatus @default(ACTIVE)
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy       User              @relation(fields: [createdById], references: [id])
+  members         ProjectMember[]
+  assignments     Assignment[]
+  drawingSets     DrawingSet[]
+  drawingSheets   DrawingSheet[]
+  devices         Device[]
+  deviceNotes     DeviceNote[]
+  projectNotes    ProjectNote[]
+  redlineSessions RedlineSession[]
+  activityEvents  ActivityLogEvent[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+}
+
+model ProjectMember {
+  id        String            @id @default(uuid())
+  companyId String
+  projectId String
+  userId    String
+  role      ProjectMemberRole @default(TECHNICIAN)
+  createdAt DateTime          @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Assignment {
+  id             String           @id @default(uuid())
+  companyId      String
+  projectId      String
+  drawingSheetId String?
+  assignedToId   String
+  assignedById   String
+  title          String
+  description    String?
+  status         AssignmentStatus @default(OPEN)
+  dueDate        DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo   User          @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedBy   User          @relation("AssignedBy", fields: [assignedById], references: [id])
+  drawingSheet DrawingSheet? @relation(fields: [drawingSheetId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([assignedToId])
+}
+
+// ─── Drawings ─────────────────────────────────────────────────────────────────
+
+model DrawingSet {
+  id               String   @id @default(uuid())
+  companyId        String
+  projectId        String
+  name             String
+  description      String?
+  storageKey       String
+  originalFileName String
+  fileSizeBytes    BigInt
+  mimeType         String   @default("application/pdf")
+  pageCount        Int
+  uploadedById     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User              @relation(fields: [uploadedById], references: [id])
+  revisions  DrawingRevision[]
+  sheets     DrawingSheet[]
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model DrawingRevision {
+  id            String    @id @default(uuid())
+  companyId     String
+  projectId     String
+  drawingSetId  String
+  revisionLabel String
+  issuedDate    DateTime?
+  uploadedById  String
+  storageKey    String
+  createdAt     DateTime  @default(now())
+
+  company    Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  drawingSet DrawingSet   @relation(fields: [drawingSetId], references: [id], onDelete: Cascade)
+  uploadedBy User         @relation(fields: [uploadedById], references: [id])
+  sheets     DrawingSheet[]
+
+  @@index([companyId])
+  @@index([drawingSetId])
+}
+
+model DrawingSheet {
+  id                String   @id @default(uuid())
+  companyId         String
+  projectId         String
+  drawingSetId      String
+  drawingRevisionId String?
+  sheetNumber       String
+  sheetName         String?
+  pageIndex         Int
+  sortOrder         Int
+  widthPoints       Float
+  heightPoints      Float
+  rotation          Float    @default(0)
+  thumbnailStorageKey String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  drawingSet      DrawingSet       @relation(fields: [drawingSetId], references: [id], onDelete: Cascade)
+  drawingRevision DrawingRevision? @relation(fields: [drawingRevisionId], references: [id])
+  devices         Device[]
+  assignments     Assignment[]
+  redlineSessions RedlineSession[]
+  redlineItems    RedlineItem[]
+  projectNotes    ProjectNote[]
+
+  @@unique([drawingSetId, sheetNumber])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([projectId, drawingSetId])
+  @@index([projectId, sheetNumber])
+}
+
+// ─── Devices ──────────────────────────────────────────────────────────────────
+
+model DeviceType {
+  id        String   @id @default(uuid())
+  companyId String?
+  name      String
+  code      String
+  category  String?
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  devices Device[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([isSystem])
+}
+
+model Device {
+  id               String       @id @default(uuid())
+  companyId        String
+  projectId        String
+  drawingSheetId   String
+  deviceTypeId     String
+  deviceIdentifier String?
+  description      String?
+  room             String?
+  floor            String?
+  loop             String?
+  address          String?
+  circuit          String?
+  normalizedX      Float
+  normalizedY      Float
+  rotation         Float        @default(0)
+  scale            Float        @default(1)
+  status           DeviceStatus @default(NOT_STARTED)
+  assignedToId     String?
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  deletedAt        DateTime?
+
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  drawingSheet DrawingSheet        @relation(fields: [drawingSheetId], references: [id])
+  deviceType   DeviceType          @relation(fields: [deviceTypeId], references: [id])
+  assignedTo   User?               @relation("AssignedTo", fields: [assignedToId], references: [id])
+  createdBy    User                @relation("CreatedBy", fields: [createdById], references: [id])
+  stages       DeviceStageRecord[]
+  history      DeviceHistoryEvent[]
+  notes        DeviceNote[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([projectId, drawingSheetId])
+  @@index([projectId, status])
+  @@index([projectId, deviceTypeId])
+  @@index([projectId, assignedToId])
+  @@index([projectId, loop])
+  @@index([projectId, circuit])
+  @@index([projectId, room])
+  @@index([deletedAt])
+}
+
+model DeviceStageRecord {
+  id            String            @id @default(uuid())
+  companyId     String
+  projectId     String
+  deviceId      String
+  stage         InstallationStage
+  completed     Boolean           @default(false)
+  completedById String?
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  device      Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  completedBy User?  @relation(fields: [completedById], references: [id])
+
+  @@unique([deviceId, stage])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([deviceId])
+}
+
+model DeviceHistoryEvent {
+  id        String   @id @default(uuid())
+  companyId String
+  projectId String
+  deviceId  String
+  actorId   String
+  eventType String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([deviceId])
+  @@index([deviceId, createdAt])
+}
+
+// ─── Notes ───────────────────────────────────────────────────────────────────
+
+model DeviceNote {
+  id        String   @id @default(uuid())
+  companyId String
+  projectId String
+  deviceId  String
+  authorId  String
+  comment   String
+  createdAt DateTime @default(now())
+
+  device  Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([companyId])
+  @@index([deviceId])
+}
+
+model ProjectNote {
+  id             String   @id @default(uuid())
+  companyId      String
+  projectId      String
+  drawingSheetId String?
+  authorId       String
+  comment        String
+  createdAt      DateTime @default(now())
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  drawingSheet DrawingSheet? @relation(fields: [drawingSheetId], references: [id])
+  author       User          @relation(fields: [authorId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+// ─── Redlines ─────────────────────────────────────────────────────────────────
+
+model RedlineSession {
+  id             String               @id @default(uuid())
+  companyId      String
+  projectId      String
+  drawingSheetId String
+  authorId       String
+  title          String?
+  comment        String?
+  status         RedlineSessionStatus @default(DRAFT)
+  submittedAt    DateTime?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewComment  String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  drawingSheet DrawingSheet @relation(fields: [drawingSheetId], references: [id])
+  author       User         @relation("Author", fields: [authorId], references: [id])
+  reviewedBy   User?        @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  items        RedlineItem[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([projectId, drawingSheetId])
+  @@index([projectId, status])
+  @@index([projectId, drawingSheetId, status])
+}
+
+model RedlineItem {
+  id               String          @id @default(uuid())
+  companyId        String
+  projectId        String
+  drawingSheetId   String
+  redlineSessionId String
+  type             RedlineItemType
+  comment          String?
+  geometry         Json
+  style            Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  drawingSheet   DrawingSheet   @relation(fields: [drawingSheetId], references: [id])
+  redlineSession RedlineSession @relation(fields: [redlineSessionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([redlineSessionId])
+}
+
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+
+model ActivityLogEvent {
+  id         String            @id @default(uuid())
+  companyId  String
+  projectId  String?
+  actorId    String
+  entityType String
+  entityId   String
+  eventType  ActivityEventType
+  payload    Json?
+  createdAt  DateTime          @default(now())
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id])
+  actor   User     @relation(fields: [actorId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([projectId, createdAt])
+  @@index([actorId])
+  @@index([entityType, entityId])
+}
