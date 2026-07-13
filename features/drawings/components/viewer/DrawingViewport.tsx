@@ -165,11 +165,12 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
     touchState.current = null
   }
 
-  const { width: renderWidth, height: renderHeight } = computeRenderedSize(
-    sheet.widthPoints,
-    sheet.heightPoints,
-    zoom,
-  )
+  // Render the PDF at the fit-zoom resolution and hold it constant.
+  // Zoom changes are applied via CSS transform (GPU-accelerated, instant on mobile).
+  // This prevents the render from being cancelled every time zoom changes.
+  const baseWidth = fitZoom > 0 ? Math.round(sheet.widthPoints * fitZoom) : 0
+  const baseHeight = fitZoom > 0 ? Math.round(sheet.heightPoints * fitZoom) : 0
+  const cssScale = fitZoom > 0 ? zoom / fitZoom : 1
 
   return (
     <div className="flex flex-col h-full">
@@ -195,29 +196,32 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Scrollable inner — positioned by pan transform */}
+        {/* Canvas inner: pan via translate, zoom via CSS scale.
+            The canvas is rendered at baseWidth/baseHeight (fit-zoom resolution)
+            and scaled with transform — no PDF re-render on every zoom change. */}
         <div
           style={{
             position: "absolute",
             top: "50%",
             left: "50%",
-            transform: `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px))`,
-            width: renderWidth,
-            height: renderHeight,
+            width: baseWidth,
+            height: baseHeight,
+            transform: `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${cssScale})`,
+            transformOrigin: "center center",
           }}
         >
           {/* PDF background — read only */}
           <PDFCanvas
             pdfUrl={pdfUrl}
             pageIndex={sheet.pageIndex}
-            renderWidth={renderWidth}
-            renderHeight={renderHeight}
+            renderWidth={baseWidth}
+            renderHeight={baseHeight}
             onReady={handlePDFReady}
             onError={handlePDFError}
           />
 
           {/* Interactive SVG overlay — never modifies the PDF */}
-          <OverlayLayer renderWidth={renderWidth} renderHeight={renderHeight}>
+          <OverlayLayer renderWidth={baseWidth} renderHeight={baseHeight}>
             {children}
           </OverlayLayer>
         </div>
