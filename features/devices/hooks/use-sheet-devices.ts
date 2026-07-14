@@ -55,6 +55,42 @@ export function useCreateDevice(projectId: string, sheetId: string) {
   })
 }
 
+// ─── Bulk create (find similar symbols) ───────────────────────────────────────
+
+export interface BulkCreateRegion {
+  normalizedX: number
+  normalizedY: number
+  normalizedWidth: number
+  normalizedHeight: number
+}
+
+interface BulkCreatePayload {
+  deviceTypeId: string
+  regions: BulkCreateRegion[]
+}
+
+export function useBulkCreateDevices(projectId: string, sheetId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: BulkCreatePayload) => {
+      const res = await fetch(
+        `/api/projects/${projectId}/drawing-sheets/${sheetId}/devices/bulk`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      )
+      const json: ApiResponse<{ id: string }[]> = await res.json()
+      if (!json.success) throw new Error(json.error)
+      return json.data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["devices", projectId, sheetId] })
+    },
+  })
+}
+
 // ─── Update status (tech) ─────────────────────────────────────────────────────
 
 export function useUpdateDeviceStatus(projectId: string, sheetId: string) {

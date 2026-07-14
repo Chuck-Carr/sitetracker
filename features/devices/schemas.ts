@@ -23,6 +23,27 @@ export const createDeviceSchema = z.object({
   loop: z.string().trim().optional(),
 })
 
+/**
+ * Bulk create — admin only. Backs the "find similar symbols" flow, adding many
+ * devices of a single type at once. Only the device type + region are set;
+ * identifier/loop/floor/room/address/etc. are intentionally left empty so the
+ * admin can fill them in (or adjust boxes) afterwards.
+ */
+export const bulkCreateDeviceSchema = z.object({
+  deviceTypeId: z.string().uuid(),
+  regions: z
+    .array(
+      z.object({
+        normalizedX: z.number().min(0).max(1),
+        normalizedY: z.number().min(0).max(1),
+        normalizedWidth: z.number().min(0.001).max(1),
+        normalizedHeight: z.number().min(0.001).max(1),
+      }),
+    )
+    .min(1)
+    .max(500),
+})
+
 /** Full update — admin only */
 export const adminUpdateDeviceSchema = z.object({
   deviceTypeId: z.string().uuid().optional(),

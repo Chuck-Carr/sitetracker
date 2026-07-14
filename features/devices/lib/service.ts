@@ -112,6 +112,53 @@ export async function createDevice(
   })
 }
 
+export interface BulkCreateDeviceInput {
+  drawingSheetId: string
+  deviceTypeId: string
+  regions: {
+    normalizedX: number
+    normalizedY: number
+    normalizedWidth: number
+    normalizedHeight: number
+  }[]
+}
+
+/**
+ * Bulk-create devices of a single type from detected symbol regions.
+ * Only the device type + position are written; all metadata (identifier, loop,
+ * floor, room, address, etc.) is intentionally left empty for later editing.
+ * Uses createManyAndReturn (PostgreSQL) to insert every row in one round-trip.
+ */
+export async function createDevicesBulk(
+  companyId: string,
+  projectId: string,
+  userId: string,
+  input: BulkCreateDeviceInput,
+) {
+  return prisma.device.createManyAndReturn({
+    data: input.regions.map((r) => ({
+      companyId,
+      projectId,
+      drawingSheetId: input.drawingSheetId,
+      deviceTypeId: input.deviceTypeId,
+      normalizedX: r.normalizedX,
+      normalizedY: r.normalizedY,
+      normalizedWidth: r.normalizedWidth,
+      normalizedHeight: r.normalizedHeight,
+      createdById: userId,
+    })),
+    // NOTE: createManyAndReturn cannot select relations (e.g. deviceType), so we
+    // return scalars only; the client invalidates + refetches the devices list.
+    select: {
+      id: true,
+      normalizedX: true,
+      normalizedY: true,
+      normalizedWidth: true,
+      normalizedHeight: true,
+    },
+  })
+}
+
 export interface AdminUpdateDeviceInput {
   deviceTypeId?: string
   deviceIdentifier?: string
