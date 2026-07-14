@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   FolderOpen,
+  Users,
+  KeyRound,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
@@ -13,6 +15,7 @@ import { logout } from "@/features/auth/lib/actions"
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderOpen },
+  { href: "/team", label: "Team", icon: Users },
 ]
 
 export function Sidebar() {
@@ -47,8 +50,20 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="p-3 border-t border-slate-700">
+      {/* Account + Logout */}
+      <div className="p-3 border-t border-slate-700 space-y-1">
+        <Link
+          href="/account"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+            pathname === "/account"
+              ? "bg-slate-700 text-white"
+              : "text-slate-300 hover:bg-slate-800 hover:text-white",
+          )}
+        >
+          <KeyRound size={18} />
+          Change Password
+        </Link>
         <form action={logout}>
           <button
             type="submit"

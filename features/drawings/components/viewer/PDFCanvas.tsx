@@ -3,6 +3,21 @@
 import { useEffect, useRef } from "react"
 import type * as PDFJSType from "pdfjs-dist"
 
+// pdfjs-dist v6.x uses Map.prototype.getOrInsertComputed which is available in
+// Chrome 136+ but not yet in Safari/WebKit (iPad, iPhone, Mac Safari).
+// Polyfill it here — before the dynamic PDF.js import — so it's in place
+// when pdfjs-dist's module code executes.
+if (typeof Map !== "undefined" && !("getOrInsertComputed" in Map.prototype)) {
+  // @ts-expect-error — polyfilling a proposal-stage Map method
+  Map.prototype.getOrInsertComputed = function <K, V>(
+    key: K,
+    callbackFn: (key: K) => V,
+  ): V {
+    if (!this.has(key)) this.set(key, callbackFn(key))
+    return this.get(key) as V
+  }
+}
+
 let pdfjsLib: typeof PDFJSType | null = null
 
 async function getPDFJS(): Promise<typeof PDFJSType> {

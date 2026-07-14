@@ -1,20 +1,29 @@
 "use client"
 
-import { ZoomIn, ZoomOut, Maximize2, MousePointer2, Hand } from "lucide-react"
+import { ZoomIn, ZoomOut, Maximize2, MousePointer2, Hand, RectangleHorizontal } from "lucide-react"
 import { useViewerStore } from "@/features/drawings/hooks/use-viewer-store"
 import { cn } from "@/lib/utils/cn"
+import type { UserRole } from "@/app/generated/prisma/client"
+import { isAdmin } from "@/features/devices/schemas"
 
 interface ViewerToolbarProps {
   fitZoom: number | null
+  userRole: UserRole
 }
 
-export function ViewerToolbar({ fitZoom }: ViewerToolbarProps) {
+export function ViewerToolbar({ fitZoom, userRole }: ViewerToolbarProps) {
   const { zoom, zoomIn, zoomOut, resetView, activeTool, setActiveTool } = useViewerStore()
 
-  const tools = [
+  const baseTool = [
     { id: "select" as const, icon: MousePointer2, label: "Select" },
     { id: "pan" as const, icon: Hand, label: "Pan" },
   ]
+
+  const adminTools = isAdmin(userRole)
+    ? [{ id: "draw-region" as const, icon: RectangleHorizontal, label: "Add Device" }]
+    : []
+
+  const tools = [...baseTool, ...adminTools]
 
   return (
     <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white shadow-sm px-2 py-1.5">
@@ -30,6 +39,7 @@ export function ViewerToolbar({ fitZoom }: ViewerToolbarProps) {
               activeTool === id
                 ? "bg-blue-100 text-blue-600"
                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
+              id === "draw-region" && activeTool !== "draw-region" && "hover:bg-emerald-50 hover:text-emerald-700",
             )}
           >
             <Icon size={16} />

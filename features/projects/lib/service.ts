@@ -67,6 +67,33 @@ export async function updateProject(
   })
 }
 
+export async function getProjectDeviceStats(companyId: string, projectId: string) {
+  const groups = await prisma.device.groupBy({
+    by: ["status"],
+    where: { companyId, projectId, deletedAt: null },
+    _count: { _all: true },
+  })
+
+  const counts = {
+    NOT_STARTED: 0,
+    ROUGH_IN: 0,
+    INSTALLED: 0,
+    PROGRAMMED: 0,
+    TESTED: 0,
+    NEEDS_INFO: 0,
+  } as Record<string, number>
+
+  for (const g of groups) {
+    counts[g.status] = g._count._all
+  }
+
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+
+  return { counts, total }
+}
+
+export type ProjectDeviceStats = Awaited<ReturnType<typeof getProjectDeviceStats>>
+
 export async function archiveProject(companyId: string, projectId: string) {
   return prisma.project.update({
     where: { id: projectId, ...tenantScope(companyId) },

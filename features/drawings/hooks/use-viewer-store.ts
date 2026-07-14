@@ -1,6 +1,13 @@
 import { create } from "zustand"
 
-export type ViewerTool = "select" | "pan" | "place-device" | "redline"
+export type ViewerTool = "select" | "pan" | "draw-region" | "redline"
+
+export interface NormalizedRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 
 interface ViewerState {
   // Transform
@@ -22,6 +29,10 @@ interface ViewerState {
   // UI state
   isPlacementMode: boolean
   isRedlineMode: boolean
+
+  // Rect drawing (admin "draw-region" tool)
+  drawingRect: NormalizedRect | null   // live preview while dragging
+  pendingRect: NormalizedRect | null   // committed rect, waiting for form
 }
 
 interface ViewerActions {
@@ -36,6 +47,11 @@ interface ViewerActions {
   setSearchQuery: (q: string) => void
   setFilter: (key: string, values: string[]) => void
   clearFilters: () => void
+
+  // Rect drawing actions
+  setDrawingRect: (rect: NormalizedRect | null) => void
+  commitDrawRect: () => void   // moves drawingRect → pendingRect, resets tool
+  clearPendingRect: () => void
 }
 
 const ZOOM_STEP = 0.25
@@ -54,6 +70,8 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
   activeFilters: {},
   isPlacementMode: false,
   isRedlineMode: false,
+  drawingRect: null,
+  pendingRect: null,
 
   setZoom: (zoom) => set({ zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) }),
 
@@ -74,8 +92,10 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
   setActiveTool: (tool) =>
     set({
       activeTool: tool,
-      isPlacementMode: tool === "place-device",
+      isPlacementMode: false,
       isRedlineMode: tool === "redline",
+      // Cancel any in-progress rect when switching tools
+      drawingRect: null,
     }),
 
   selectDevice: (id) => set({ selectedDeviceId: id, selectedRedlineId: null }),
@@ -90,4 +110,15 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     })),
 
   clearFilters: () => set({ activeFilters: {}, searchQuery: "" }),
+
+  setDrawingRect: (rect) => set({ drawingRect: rect }),
+
+  commitDrawRect: () =>
+    set((state) => ({
+      pendingRect: state.drawingRect,
+      drawingRect: null,
+      activeTool: "select",
+    })),
+
+  clearPendingRect: () => set({ pendingRect: null }),
 }))

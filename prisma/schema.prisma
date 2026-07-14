@@ -47,23 +47,9 @@ enum DeviceStatus {
   NOT_STARTED
   ROUGH_IN
   INSTALLED
-  ADDRESSED
   PROGRAMMED
-  PRE_TESTED
-  FINAL_TESTED
-  AHJ_ACCEPTED
-  NEEDS_ATTENTION
-  ISSUE
-}
-
-enum InstallationStage {
-  ROUGH_IN
-  INSTALLED
-  ADDRESSED
-  PROGRAMMED
-  PRE_TESTED
-  FINAL_TESTED
-  AHJ_ACCEPTED
+  TESTED
+  NEEDS_INFO
 }
 
 enum RedlineSessionStatus {
@@ -106,7 +92,6 @@ enum ActivityEventType {
   DEVICE_UPDATED
   DEVICE_MOVED
   DEVICE_DELETED
-  DEVICE_STAGE_COMPLETED
   DEVICE_NOTE_CREATED
   REDLINE_SESSION_CREATED
   REDLINE_SESSION_SUBMITTED
@@ -158,7 +143,6 @@ model User {
   uploadedRevisions   DrawingRevision[]
   createdDevices      Device[]             @relation("CreatedBy")
   assignedDevices     Device[]             @relation("AssignedTo")
-  completedStages     DeviceStageRecord[]
   deviceHistoryEvents DeviceHistoryEvent[]
   deviceNotes         DeviceNote[]
   projectNotes        ProjectNote[]
@@ -360,8 +344,8 @@ model Device {
   circuit          String?
   normalizedX      Float
   normalizedY      Float
-  rotation         Float        @default(0)
-  scale            Float        @default(1)
+  normalizedWidth  Float        @default(0.1)
+  normalizedHeight Float        @default(0.05)
   status           DeviceStatus @default(NOT_STARTED)
   assignedToId     String?
   createdById      String
@@ -375,7 +359,6 @@ model Device {
   deviceType   DeviceType          @relation(fields: [deviceTypeId], references: [id])
   assignedTo   User?               @relation("AssignedTo", fields: [assignedToId], references: [id])
   createdBy    User                @relation("CreatedBy", fields: [createdById], references: [id])
-  stages       DeviceStageRecord[]
   history      DeviceHistoryEvent[]
   notes        DeviceNote[]
 
@@ -389,28 +372,6 @@ model Device {
   @@index([projectId, circuit])
   @@index([projectId, room])
   @@index([deletedAt])
-}
-
-model DeviceStageRecord {
-  id            String            @id @default(uuid())
-  companyId     String
-  projectId     String
-  deviceId      String
-  stage         InstallationStage
-  completed     Boolean           @default(false)
-  completedById String?
-  completedAt   DateTime?
-  notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  device      Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  completedBy User?  @relation(fields: [completedById], references: [id])
-
-  @@unique([deviceId, stage])
-  @@index([companyId])
-  @@index([projectId])
-  @@index([deviceId])
 }
 
 model DeviceHistoryEvent {

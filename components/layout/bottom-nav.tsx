@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FolderOpen, LogOut } from "lucide-react"
+import { LayoutDashboard, FolderOpen, Users, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderOpen },
+  { href: "/team", label: "Team", icon: Users },
 ]
 
 /**
@@ -19,7 +20,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="lg:hidden flex flex-none border-t border-slate-700 bg-slate-900">
+    <nav className="xl:hidden flex flex-none border-t border-slate-700 bg-slate-900">
       {navItems.map(({ href, label, icon: Icon }) => {
         const active = pathname.startsWith(href)
         return (

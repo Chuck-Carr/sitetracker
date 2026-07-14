@@ -16,13 +16,13 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     */
     <div className="flex flex-col h-full">
 
-      {/* Mobile/tablet top bar — in-flow, not fixed. lg+ hides it. */}
+      {/* Mobile/tablet top bar — in-flow, not fixed. xl+ hides it. */}
       <MobileHeader />
 
       {/* Inner row: sidebar + main */}
       <div className="flex flex-1 min-h-0">
-        {/* Sidebar — only at 1024px+. All iPads get the mobile header above. */}
-        <div className="hidden lg:flex">
+        {/* Sidebar — only at 1280px+. iPads (portrait + landscape) keep the mobile header. */}
+        <div className="hidden xl:flex">
           <Sidebar />
         </div>
 

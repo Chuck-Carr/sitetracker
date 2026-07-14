@@ -22,6 +22,7 @@ export default async function DrawingViewerPage({
         projectId={projectId}
         sheet={result.sheet}
         pdfUrl={result.pdfUrl}
+        userRole={session.role}
       />
     </div>
   )

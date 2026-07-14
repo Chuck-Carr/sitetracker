@@ -6,12 +6,22 @@ import { computeFitZoom } from "@/features/drawings/lib/coordinates"
 import { PDFCanvas } from "./PDFCanvas"
 import { OverlayLayer } from "./OverlayLayer"
 import { ViewerToolbar } from "./ViewerToolbar"
+import Link from "next/link"
+import { ChevronLeft } from "lucide-react"
 import type { DrawingSheetListItem } from "@/features/drawings/lib/service"
+import type { UserRole } from "@/app/generated/prisma/client"
 
 interface DrawingViewportProps {
   sheet: DrawingSheetListItem
   pdfUrl: string
-  children?: React.ReactNode // overlay content (devices, redlines, etc.)
+  userRole: UserRole
+  /** Optional back-navigation link shown in the toolbar strip. */
+  backHref?: string
+  /**
+   * Render prop — receives the current (renderWidth, renderHeight) in PDF canvas
+   * pixels so child overlay components can position themselves correctly.
+   */
+  children?: (renderWidth: number, renderHeight: number) => React.ReactNode
 }
 
 /**
@@ -23,7 +33,7 @@ interface DrawingViewportProps {
  * - Passes render dimensions to PDFCanvas and OverlayLayer
  * - Handles mouse-wheel zoom and drag-pan
  */
-export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProps) {
+export function DrawingViewport({ sheet, pdfUrl, userRole, backHref, children }: DrawingViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // null = not yet measured; PDF render is gated on this
   const [fitZoom, setFitZoom] = useState<number | null>(null)
@@ -133,61 +143,99 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
     dragStart.current = null
   }
 
-  // Touch support: single-finger pan, two-finger pinch-to-zoom
-  const touchState = useRef<{
-    lastX: number
-    lastY: number
-    panX: number
-    panY: number
-    lastDist: number
-    zoom: number
-  } | null>(null)
+  // ─── Touch: single-finger pan + two-finger pinch-to-zoom ────────────────────
+  //
+  // React's synthetic onTouchStart/Move/End are passive by default in React 17+,
+  // so e.preventDefault() inside them has no effect and the browser's own
+  // scroll/zoom fires on top of our handlers. Fix: native addEventListener with
+  // { passive: false } so preventDefault() actually works.
+  //
+  // We also:
+  //   - don't call preventDefault on touchstart so the browser still generates
+  //     click events from taps → device selection keeps working
+  //   - read pan/zoom from useViewerStore.getState() instead of the render
+  //     closure to avoid stale values across frames
+  //   - use incremental deltas (lastX/lastY updated each frame) for smooth pan
+  //   - multiply zoom by the per-frame scale ratio, not the initial zoom
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
 
-  function handleTouchStart(e: React.TouchEvent) {
-    e.preventDefault()
-    if (e.touches.length === 1) {
-      touchState.current = {
-        lastX: e.touches[0].clientX,
-        lastY: e.touches[0].clientY,
-        panX,
-        panY,
-        lastDist: 0,
-        zoom,
+    // Local mutable state — lives for the lifetime of the mounted component.
+    // Captured by closure; all three handlers share the same variables.
+    let mode: "idle" | "pan" | "pinch" = "idle"
+    let lastX = 0
+    let lastY = 0
+    let lastDist = 0
+
+    function onTouchStart(e: TouchEvent) {
+      // Passive (no preventDefault) so the browser still emits click from taps.
+      if (e.touches.length === 1) {
+        mode = "pan"
+        lastX = e.touches[0].clientX
+        lastY = e.touches[0].clientY
+      } else if (e.touches.length >= 2) {
+        mode = "pinch"
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        lastDist = Math.hypot(dx, dy)
       }
-    } else if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX
-      const dy = e.touches[0].clientY - e.touches[1].clientY
-      const dist = Math.hypot(dx, dy)
-      touchState.current = { lastX: 0, lastY: 0, panX, panY, lastDist: dist, zoom }
     }
-  }
 
-  function handleTouchMove(e: React.TouchEvent) {
-    e.preventDefault()
-    if (!touchState.current) return
+    function onTouchMove(e: TouchEvent) {
+      e.preventDefault() // Works because listener is non-passive
+      // Always read live state — avoids stale closure values
+      const { panX, panY, zoom, setPan, setZoom } = useViewerStore.getState()
 
-    if (e.touches.length === 1) {
-      // Single-finger pan — always active regardless of tool on touch devices
-      const dx = e.touches[0].clientX - touchState.current.lastX
-      const dy = e.touches[0].clientY - touchState.current.lastY
-      setPan(touchState.current.panX + dx, touchState.current.panY + dy)
-    } else if (e.touches.length === 2) {
-      // Two-finger pinch zoom
-      const dx = e.touches[0].clientX - e.touches[1].clientX
-      const dy = e.touches[0].clientY - e.touches[1].clientY
-      const dist = Math.hypot(dx, dy)
-      if (touchState.current.lastDist > 0) {
-        const scale = dist / touchState.current.lastDist
-        const next = Math.max(0.1, Math.min(5, touchState.current.zoom * scale))
-        setZoom(next)
+      if (mode === "pan" && e.touches.length === 1) {
+        const dx = e.touches[0].clientX - lastX
+        const dy = e.touches[0].clientY - lastY
+        lastX = e.touches[0].clientX // advance anchor each frame
+        lastY = e.touches[0].clientY
+        setPan(panX + dx, panY + dy)
+      } else if (e.touches.length >= 2) {
+        if (mode !== "pinch") {
+          // Second finger added mid-drag — transition to pinch
+          mode = "pinch"
+          const dx0 = e.touches[0].clientX - e.touches[1].clientX
+          const dy0 = e.touches[0].clientY - e.touches[1].clientY
+          lastDist = Math.hypot(dx0, dy0)
+          return
+        }
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        const dist = Math.hypot(dx, dy)
+        if (lastDist > 0) {
+          // Scale against CURRENT zoom, not the initial zoom captured at touchstart
+          setZoom(Math.max(0.1, Math.min(5, zoom * (dist / lastDist))))
+        }
+        lastDist = dist // advance anchor each frame
       }
-      touchState.current.lastDist = dist
     }
-  }
 
-  function handleTouchEnd() {
-    touchState.current = null
-  }
+    function onTouchEnd(e: TouchEvent) {
+      if (e.touches.length === 0) {
+        mode = "idle"
+      } else if (e.touches.length === 1) {
+        // One finger lifted during pinch — continue as single-finger pan
+        mode = "pan"
+        lastX = e.touches[0].clientX
+        lastY = e.touches[0].clientY
+      }
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true })
+    el.addEventListener("touchmove",  onTouchMove,  { passive: false })
+    el.addEventListener("touchend",   onTouchEnd,   { passive: true })
+    el.addEventListener("touchcancel", onTouchEnd,  { passive: true })
+
+    return () => {
+      el.removeEventListener("touchstart",  onTouchStart)
+      el.removeEventListener("touchmove",   onTouchMove)
+      el.removeEventListener("touchend",    onTouchEnd)
+      el.removeEventListener("touchcancel", onTouchEnd)
+    }
+  }, []) // empty deps — reads Zustand store via getState(), not the render closure
 
   // renderZoom drives the actual canvas resolution; zoom drives the CSS scale.
   // While the user is zooming, CSS scale gives instant visual feedback.
@@ -202,25 +250,39 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
     <div className="flex flex-col h-full">
       {/* Toolbar strip */}
       <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-200 shrink-0 gap-2">
-        <span className="text-sm font-medium text-slate-700 truncate min-w-0">
-          Sheet {sheet.sheetNumber}
-          {sheet.sheetName && <span className="hidden sm:inline"> — {sheet.sheetName}</span>}
-        </span>
-        <ViewerToolbar fitZoom={fitZoom} />
+        <div className="flex items-center gap-2 min-w-0">
+          {backHref && (
+            <Link
+              href={backHref}
+              className="flex items-center gap-0.5 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+              title="Back to project"
+            >
+              <ChevronLeft size={18} />
+              <span className="text-xs font-medium hidden sm:inline">Project</span>
+            </Link>
+          )}
+          <span className="text-sm font-medium text-slate-700 truncate">
+            Sheet {sheet.sheetNumber}
+            {sheet.sheetName && <span className="hidden sm:inline"> — {sheet.sheetName}</span>}
+          </span>
+        </div>
+        <ViewerToolbar fitZoom={fitZoom} userRole={userRole} />
       </div>
 
       {/* Canvas area */}
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden bg-slate-300 relative"
-        style={{ cursor: activeTool === "pan" ? "grab" : "default" }}
+        style={{
+          cursor: activeTool === "pan" ? "grab" : "default",
+          // Tells the browser not to handle touch pan/zoom itself on this
+          // element — our native touchmove listener handles it instead.
+          touchAction: "none",
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {/* Canvas inner: pan via translate, zoom via CSS scale.
             The canvas is rendered at baseWidth/baseHeight (fit-zoom resolution)
@@ -248,7 +310,7 @@ export function DrawingViewport({ sheet, pdfUrl, children }: DrawingViewportProp
 
           {/* Interactive SVG overlay — never modifies the PDF */}
           <OverlayLayer renderWidth={baseWidth} renderHeight={baseHeight}>
-            {children}
+            {children?.(baseWidth, baseHeight)}
           </OverlayLayer>
         </div>
 
