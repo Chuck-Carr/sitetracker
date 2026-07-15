@@ -33,6 +33,13 @@ interface ViewerState {
   // Rect drawing (admin "draw-region" tool)
   drawingRect: NormalizedRect | null   // live preview while dragging
   pendingRect: NormalizedRect | null   // committed rect, waiting for form
+
+  // Rapid placement: when set, drawing a box instantly creates a device of
+  // this type and keeps the draw tool active so the admin can keep placing.
+  rapidTypeId: string | null
+
+  // Number of devices placed during the current rapid-placement session.
+  placedCount: number
 }
 
 interface ViewerActions {
@@ -52,6 +59,10 @@ interface ViewerActions {
   setDrawingRect: (rect: NormalizedRect | null) => void
   commitDrawRect: () => void   // moves drawingRect → pendingRect, resets tool
   clearPendingRect: () => void
+
+  // Rapid placement actions
+  setRapidType: (id: string | null) => void
+  incrementPlaced: () => void
 }
 
 const ZOOM_STEP = 0.25
@@ -72,6 +83,8 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
   isRedlineMode: false,
   drawingRect: null,
   pendingRect: null,
+  rapidTypeId: null,
+  placedCount: 0,
 
   setZoom: (zoom) => set({ zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) }),
 
@@ -96,6 +109,10 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
       isRedlineMode: tool === "redline",
       // Cancel any in-progress rect when switching tools
       drawingRect: null,
+      // Leaving the draw tool exits rapid placement mode
+      rapidTypeId: tool === "draw-region" ? get().rapidTypeId : null,
+      // Reset the session counter whenever the tool changes
+      placedCount: 0,
     }),
 
   selectDevice: (id) => set({ selectedDeviceId: id, selectedRedlineId: null }),
@@ -117,8 +134,13 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     set((state) => ({
       pendingRect: state.drawingRect,
       drawingRect: null,
-      activeTool: "select",
+      // In rapid mode, keep drawing; otherwise fall back to the form flow.
+      activeTool: state.rapidTypeId ? "draw-region" : "select",
     })),
 
   clearPendingRect: () => set({ pendingRect: null }),
+
+  setRapidType: (id) => set({ rapidTypeId: id }),
+
+  incrementPlaced: () => set((state) => ({ placedCount: state.placedCount + 1 })),
 }))

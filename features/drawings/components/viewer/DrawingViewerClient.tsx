@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Layers, X } from "lucide-react"
 import { DrawingViewport } from "./DrawingViewport"
 import { SheetNavigator } from "./SheetNavigator"
@@ -8,10 +8,11 @@ import type { DrawingSheetListItem } from "@/features/drawings/lib/service"
 import type { UserRole } from "@/app/generated/prisma/client"
 import { useViewerStore } from "@/features/drawings/hooks/use-viewer-store"
 import { isAdmin } from "@/features/devices/schemas"
-import { useSheetDevices } from "@/features/devices/hooks/use-sheet-devices"
+import { useSheetDevices, useCreateDevice } from "@/features/devices/hooks/use-sheet-devices"
 import { DeviceRegionLayer } from "@/features/devices/components/DeviceRegionLayer"
 import { DeviceDetailPanel } from "@/features/devices/components/DeviceDetailPanel"
 import { AddEditDevicePanel } from "@/features/devices/components/AddEditDevicePanel"
+import { DevicePlacementBar } from "@/features/devices/components/DevicePlacementBar"
 
 interface DrawingViewerClientProps {
   projectId: string
@@ -32,9 +33,40 @@ export function DrawingViewerClient({ projectId, sheet, pdfUrl, userRole }: Draw
     selectDevice,
     pendingRect,
     clearPendingRect,
+    rapidTypeId,
+    activeTool,
+    placedCount,
+    incrementPlaced,
   } = useViewerStore()
 
   const { data: devices = [] } = useSheetDevices(projectId, sheet.id)
+  const createDevice = useCreateDevice(projectId, sheet.id)
+
+  // Rapid placement: when a box is committed and a device type is selected,
+  // instantly create the device (no form) and clear the rect so the admin can
+  // immediately keep drawing. A ref guards against duplicate submissions for
+  // the same pending rect while the mutation is in flight.
+  const placingRef = useRef(false)
+  useEffect(() => {
+    if (!admin || !pendingRect || !rapidTypeId || placingRef.current) return
+    placingRef.current = true
+    createDevice.mutate(
+      {
+        deviceTypeId: rapidTypeId,
+        normalizedX: pendingRect.x,
+        normalizedY: pendingRect.y,
+        normalizedWidth: pendingRect.w,
+        normalizedHeight: pendingRect.h,
+      },
+      {
+        onSuccess: () => incrementPlaced(),
+        onSettled: () => {
+          clearPendingRect()
+          placingRef.current = false
+        },
+      },
+    )
+  }, [admin, pendingRect, rapidTypeId, createDevice, clearPendingRect, incrementPlaced])
 
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) ?? null
   const editDevice = editingDeviceId ? devices.find((d) => d.id === editingDeviceId) ?? null : null
@@ -43,10 +75,13 @@ export function DrawingViewerClient({ projectId, sheet, pdfUrl, userRole }: Draw
     .drawingSet?.id ?? sheet.drawingSetId
 
   // Panel visibility logic:
-  // - AddEdit shows when: admin has drawn a pending rect (create) OR admin clicked edit on a device
+  // - AddEdit shows when: admin drew a pending rect WITHOUT a rapid type
+  //   (form fallback) OR admin clicked edit on a device. During rapid
+  //   placement the pending rect is auto-created above, so no form appears.
   // - Detail shows when: a device is selected AND we're not in edit mode
-  const showAddEdit = admin && (!!pendingRect || !!editingDeviceId)
+  const showAddEdit = admin && ((!!pendingRect && !rapidTypeId) || !!editingDeviceId)
   const showDetail = !!selectedDeviceId && !showAddEdit
+  const showPlacementBar = admin && activeTool === "draw-region"
 
   function handleCloseAddEdit() {
     clearPendingRect()
@@ -140,6 +175,10 @@ export function DrawingViewerClient({ projectId, sheet, pdfUrl, userRole }: Draw
             editDevice={editDevice}
             onClose={handleCloseAddEdit}
           />
+        )}
+
+        {showPlacementBar && (
+          <DevicePlacementBar projectId={projectId} placedCount={placedCount} />
         )}
 
         {/* Floating sheet navigator toggle — mobile/tablet/iPad only */}
