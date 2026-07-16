@@ -11,7 +11,8 @@ export async function proxy(request: NextRequest) {
   if (
     API_PATHS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    pathname === "/pdf.worker.min.mjs"
   ) {
     return NextResponse.next()
   }
