@@ -7,6 +7,7 @@ export default async function ProjectsPage() {
   if (!session) return null
 
   const projects = await listProjects(session.companyId)
+  const canCreate = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN" || session.role === "PROJECT_MANAGER"
 
   return (
     <div className="h-full overflow-y-auto">
@@ -18,7 +19,7 @@ export default async function ProjectsPage() {
         </div>
       </div>
 
-      <ProjectsClient initialProjects={projects} />
+      <ProjectsClient initialProjects={projects} canCreate={canCreate} />
     </div>
     </div>
   )

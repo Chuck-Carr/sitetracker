@@ -14,9 +14,10 @@ import type { ProjectListItem } from "@/features/projects/lib/service"
 
 interface ProjectsClientProps {
   initialProjects: ProjectListItem[]
+  canCreate?: boolean
 }
 
-export function ProjectsClient({ initialProjects }: ProjectsClientProps) {
+export function ProjectsClient({ initialProjects, canCreate = false }: ProjectsClientProps) {
   const [showForm, setShowForm] = useState(false)
   const { data: projects = initialProjects } = useProjects()
   const { mutate: createProject, isPending } = useCreateProject()
@@ -42,49 +43,51 @@ export function ProjectsClient({ initialProjects }: ProjectsClientProps) {
   return (
     <div className="space-y-4">
       {/* Create form */}
-      {showForm ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
-          <h2 className="text-base font-semibold text-slate-900 mb-4">New project</h2>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Project name *</Label>
-                <Input id="name" placeholder="Airport Terminal Fire Alarm" {...register("name")} />
-                {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
+      {canCreate && (
+        showForm ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
+            <h2 className="text-base font-semibold text-slate-900 mb-4">New project</h2>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Project name *</Label>
+                  <Input id="name" placeholder="Airport Terminal Fire Alarm" {...register("name")} />
+                  {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="number">Project number</Label>
+                  <Input id="number" placeholder="2024-001" {...register("number")} />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="number">Project number</Label>
-                <Input id="number" placeholder="2024-001" {...register("number")} />
+                <Label htmlFor="address">Site address</Label>
+                <Input id="address" placeholder="123 Main St, City, ST 00000" {...register("address")} />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="address">Site address</Label>
-              <Input id="address" placeholder="123 Main St, City, ST 00000" {...register("address")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="description">Description</Label>
-              <Input id="description" placeholder="Optional project description" {...register("description")} />
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={isPending} size="sm">
-                {isPending ? "Creating…" : "Create project"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => { setShowForm(false); reset() }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <Button onClick={() => setShowForm(true)} size="sm">
-          <Plus size={16} />
-          New project
-        </Button>
+              <div className="space-y-1.5">
+                <Label htmlFor="description">Description</Label>
+                <Input id="description" placeholder="Optional project description" {...register("description")} />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={isPending} size="sm">
+                  {isPending ? "Creating…" : "Create project"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setShowForm(false); reset() }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <Button onClick={() => setShowForm(true)} size="sm">
+            <Plus size={16} />
+            New project
+          </Button>
+        )
       )}
 
       {/* Project list */}
