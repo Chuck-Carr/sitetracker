@@ -21,6 +21,8 @@ export default async function DrawingsPage({
 
   if (!project) notFound()
 
+  const canUpload = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN" || session.role === "PROJECT_MANAGER"
+
   return (
     <div className="h-full overflow-y-auto">
     <div className="p-4 md:p-8">
@@ -35,7 +37,7 @@ export default async function DrawingsPage({
 
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Drawings</h1>
 
-      <DrawingsClient projectId={projectId} initialDrawingSets={drawingSets} />
+      <DrawingsClient projectId={projectId} initialDrawingSets={drawingSets} canUpload={canUpload} />
     </div>
     </div>
   )

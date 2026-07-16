@@ -2,8 +2,9 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { AlertTriangle, CheckCircle2 } from "lucide-react"
 import { getSession } from "@/lib/auth/session"
-import { getProject, getProjectDeviceStats } from "@/features/projects/lib/service"
+import { getProject, getProjectDeviceStats, listProjectMembers } from "@/features/projects/lib/service"
 import { DonutChart } from "@/components/ui/DonutChart"
+import { ProjectMembersPanel } from "@/features/projects/components/ProjectMembersPanel"
 
 // ─── Stage color palette (matches DeviceRegionBox / DeviceStageStepper) ────────
 const STAGE_COLORS = {
@@ -29,9 +30,12 @@ export default async function ProjectPage({
   const session = await getSession()
   if (!session) return null
 
-  const [project, stats] = await Promise.all([
+  const isAdmin = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN"
+
+  const [project, stats, projectMembers] = await Promise.all([
     getProject(session.companyId, projectId),
     getProjectDeviceStats(session.companyId, projectId),
+    listProjectMembers(session.companyId, projectId),
   ])
   if (!project) notFound()
 
@@ -213,6 +217,16 @@ export default async function ProjectPage({
           >
             Drawings →
           </Link>
+        </div>
+
+        {/* Project Members */}
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Project Members</h2>
+          <ProjectMembersPanel
+            projectId={projectId}
+            initialMembers={projectMembers}
+            isAdmin={isAdmin}
+          />
         </div>
       </div>
     </div>

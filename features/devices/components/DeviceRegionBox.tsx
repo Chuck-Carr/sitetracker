@@ -30,13 +30,6 @@ export function DeviceRegionBox({ device, renderWidth, renderHeight, isSelected,
   const pw = device.normalizedWidth * renderWidth
   const ph = device.normalizedHeight * renderHeight
 
-  const label = device.deviceIdentifier
-    ? `${device.deviceType.code} ${device.deviceIdentifier}`
-    : device.deviceType.code
-
-  // Clamp font size so label stays legible at all zoom levels
-  const fontSize = Math.max(8, Math.min(13, ph * 0.35))
-
   return (
     <g
       onClick={(e) => { e.stopPropagation(); onSelect(device.id) }}
@@ -54,21 +47,6 @@ export function DeviceRegionBox({ device, renderWidth, renderHeight, isSelected,
         strokeDasharray={isSelected ? undefined : colors.dash}
         rx={2}
       />
-
-      {/* Type + identifier label */}
-      <text
-        x={px + pw / 2}
-        y={py + ph / 2 + fontSize * 0.35}
-        textAnchor="middle"
-        fontSize={fontSize}
-        fontFamily="system-ui, sans-serif"
-        fontWeight={600}
-        fill={colors.text}
-        pointerEvents="none"
-        style={{ userSelect: "none" }}
-      >
-        {label}
-      </text>
 
       {/* Selected highlight ring */}
       {isSelected && (

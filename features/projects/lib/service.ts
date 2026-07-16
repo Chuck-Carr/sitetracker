@@ -100,3 +100,47 @@ export async function archiveProject(companyId: string, projectId: string) {
     data: { archivedAt: new Date(), status: "ARCHIVED" },
   })
 }
+
+// ─── Project Members ──────────────────────────────────────────────────────────
+
+export async function listProjectMembers(companyId: string, projectId: string) {
+  return prisma.projectMember.findMany({
+    where: { projectId, companyId },
+    include: { user: { select: { id: true, name: true, email: true, role: true } } },
+    orderBy: { createdAt: "asc" },
+  })
+}
+
+export type ProjectMemberItem = Awaited<ReturnType<typeof listProjectMembers>>[number]
+
+export async function addProjectMember(
+  companyId: string,
+  projectId: string,
+  userId: string,
+  role: import("@/app/generated/prisma/client").ProjectMemberRole,
+) {
+  // Verify user belongs to this company
+  const user = await prisma.user.findFirst({
+    where: { id: userId, companyId },
+    select: { id: true },
+  })
+  if (!user) throw new Error("User not found")
+
+  // Upsert so re-adding an existing member just updates the role
+  return prisma.projectMember.upsert({
+    where: { projectId_userId: { projectId, userId } },
+    create: { companyId, projectId, userId, role },
+    update: { role },
+    include: { user: { select: { id: true, name: true, email: true, role: true } } },
+  })
+}
+
+export async function removeProjectMember(
+  companyId: string,
+  projectId: string,
+  memberId: string,
+) {
+  return prisma.projectMember.deleteMany({
+    where: { id: memberId, projectId, companyId },
+  })
+}

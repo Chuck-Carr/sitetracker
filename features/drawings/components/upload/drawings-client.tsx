@@ -11,25 +11,28 @@ import type { DrawingSetListItem } from "@/features/drawings/lib/service"
 interface DrawingsClientProps {
   projectId: string
   initialDrawingSets: DrawingSetListItem[]
+  canUpload?: boolean
 }
 
-export function DrawingsClient({ projectId, initialDrawingSets }: DrawingsClientProps) {
+export function DrawingsClient({ projectId, initialDrawingSets, canUpload = false }: DrawingsClientProps) {
   const [showUploader, setShowUploader] = useState(false)
   const { data: drawingSets = initialDrawingSets } = useDrawingSets(projectId)
 
   return (
     <div className="space-y-4">
-      {showUploader ? (
-        <DrawingUploader
-          projectId={projectId}
-          onSuccess={() => setShowUploader(false)}
-          onCancel={() => setShowUploader(false)}
-        />
-      ) : (
-        <Button onClick={() => setShowUploader(true)} size="sm">
-          <Plus size={16} />
-          Upload drawing set
-        </Button>
+      {canUpload && (
+        showUploader ? (
+          <DrawingUploader
+            projectId={projectId}
+            onSuccess={() => setShowUploader(false)}
+            onCancel={() => setShowUploader(false)}
+          />
+        ) : (
+          <Button onClick={() => setShowUploader(true)} size="sm">
+            <Plus size={16} />
+            Upload drawing set
+          </Button>
+        )
       )}
 
       {drawingSets.length === 0 ? (
