@@ -8,6 +8,10 @@ interface OverlayLayerProps {
   renderWidth: number
   renderHeight: number
   children?: React.ReactNode
+  /** True while the user holds spacebar — shows grab cursor and blocks draw-region. */
+  isSpacePanning?: boolean
+  /** True while any pan drag is in progress — shows grabbing cursor. */
+  isDragging?: boolean
 }
 
 /**
@@ -19,7 +23,7 @@ interface OverlayLayerProps {
  * Mouse events are handled here; the live preview and committed rect are stored
  * in the viewer store.
  */
-export function OverlayLayer({ renderWidth, renderHeight, children }: OverlayLayerProps) {
+export function OverlayLayer({ renderWidth, renderHeight, children, isSpacePanning = false, isDragging = false }: OverlayLayerProps) {
   const { activeTool, drawingRect, setDrawingRect, commitDrawRect } = useViewerStore()
   const isDrawMode = activeTool === "draw-region"
 
@@ -86,7 +90,15 @@ export function OverlayLayer({ renderWidth, renderHeight, children }: OverlayLay
         position: "absolute",
         top: 0,
         left: 0,
-        cursor: isDrawMode ? "crosshair" : activeTool === "pan" ? "grab" : "default",
+        cursor: isDragging
+          ? "grabbing"
+          : isSpacePanning
+          ? "grab"
+          : isDrawMode
+          ? "crosshair"
+          : activeTool === "pan"
+          ? "grab"
+          : "default",
         pointerEvents: activeTool === "pan" ? "none" : "auto",
         overflow: "visible",
         userSelect: "none",

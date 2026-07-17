@@ -106,15 +106,21 @@ export function DrawingViewport({ sheet, pdfUrl, userRole, backHref, children }:
     return () => observer.disconnect()
   }, [computeFit])
 
-  // Mouse-wheel zoom (centered on cursor position)
+  // Mouse-wheel: plain wheel scrolls/pans; Ctrl/Cmd+wheel zooms.
+  // Reads live state via getState() so the callback never goes stale.
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       e.preventDefault()
-      const delta = e.deltaY > 0 ? -0.1 : 0.1
-      const next = Math.max(0.1, Math.min(5, zoom + delta))
-      setZoom(next)
+      if (e.ctrlKey || e.metaKey) {
+        const { zoom, setZoom } = useViewerStore.getState()
+        const delta = e.deltaY > 0 ? -0.1 : 0.1
+        setZoom(Math.max(0.1, Math.min(5, zoom + delta)))
+      } else {
+        const { panX, panY, setPan } = useViewerStore.getState()
+        setPan(panX - e.deltaX, panY - e.deltaY)
+      }
     },
-    [zoom, setZoom],
+    [], // reads from getState() — no stale closure risk
   )
 
   useEffect(() => {
@@ -124,12 +130,75 @@ export function DrawingViewport({ sheet, pdfUrl, userRole, backHref, children }:
     return () => el.removeEventListener("wheel", handleWheel)
   }, [handleWheel])
 
-  // Mouse drag-to-pan
+  // ─── Mouse drag-to-pan ───────────────────────────────────────────────────────
+  //
+  // Three ways to pan without switching to the Pan tool:
+  //   1. Middle-mouse button drag
+  //   2. Spacebar held + left-click drag
+  //   3. Pan tool + left-click drag (existing behaviour)
+  //
+  // Cases 1 & 2 are intercepted in the capture phase so the OverlayLayer's
+  // draw-region handler never sees the mousedown — no accidental device boxes.
+
   const dragStart = useRef<{ mouseX: number; mouseY: number; panX: number; panY: number } | null>(null)
 
-  function handleMouseDown(e: React.MouseEvent) {
-    if (activeTool !== "pan") return
+  // Spacebar ref — used in event handlers without causing re-renders.
+  // spaceDownState mirrors it and triggers re-renders for cursor/prop updates.
+  const spaceDownRef = useRef(false)
+  const [spaceDownState, setSpaceDownState] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (
+        e.code === "Space" &&
+        !e.repeat &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target instanceof HTMLSelectElement)
+      ) {
+        e.preventDefault() // prevent the browser from scrolling the page
+        spaceDownRef.current = true
+        setSpaceDownState(true)
+      }
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.code === "Space") {
+        spaceDownRef.current = false
+        setSpaceDownState(false)
+        dragStart.current = null
+        setIsDragging(false)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("keyup", onKeyUp)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("keyup", onKeyUp)
+    }
+  }, [])
+
+  /**
+   * Capture-phase handler — fires before child onMouseDown handlers.
+   * Intercepts middle-mouse and space+left clicks so OverlayLayer never
+   * starts a draw-region drag from those interactions.
+   */
+  function handleMouseDownCapture(e: React.MouseEvent) {
+    const isMiddle = e.button === 1
+    const isSpaceLeft = e.button === 0 && spaceDownRef.current
+    if (!isMiddle && !isSpaceLeft) return
+    e.preventDefault()  // suppress middle-mouse autoscroll cursor on Windows
+    e.stopPropagation() // prevent OverlayLayer onMouseDown from running
+    const { panX, panY } = useViewerStore.getState()
     dragStart.current = { mouseX: e.clientX, mouseY: e.clientY, panX, panY }
+    setIsDragging(true)
+  }
+
+  /** Left-click drag while the Pan tool is active. */
+  function handleMouseDown(e: React.MouseEvent) {
+    if (activeTool !== "pan" || e.button !== 0) return
+    dragStart.current = { mouseX: e.clientX, mouseY: e.clientY, panX, panY }
+    setIsDragging(true)
   }
 
   function handleMouseMove(e: React.MouseEvent) {
@@ -141,6 +210,7 @@ export function DrawingViewport({ sheet, pdfUrl, userRole, backHref, children }:
 
   function handleMouseUp() {
     dragStart.current = null
+    setIsDragging(false)
   }
 
   // ─── Touch: single-finger pan + two-finger pinch-to-zoom ────────────────────
@@ -274,11 +344,16 @@ export function DrawingViewport({ sheet, pdfUrl, userRole, backHref, children }:
         ref={containerRef}
         className="flex-1 overflow-hidden bg-slate-300 relative"
         style={{
-          cursor: activeTool === "pan" ? "grab" : "default",
+          cursor: isDragging
+            ? "grabbing"
+            : activeTool === "pan" || spaceDownState
+            ? "grab"
+            : "default",
           // Tells the browser not to handle touch pan/zoom itself on this
           // element — our native touchmove listener handles it instead.
           touchAction: "none",
         }}
+        onMouseDownCapture={handleMouseDownCapture}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -309,7 +384,12 @@ export function DrawingViewport({ sheet, pdfUrl, userRole, backHref, children }:
           />
 
           {/* Interactive SVG overlay — never modifies the PDF */}
-          <OverlayLayer renderWidth={baseWidth} renderHeight={baseHeight}>
+          <OverlayLayer
+            renderWidth={baseWidth}
+            renderHeight={baseHeight}
+            isSpacePanning={spaceDownState}
+            isDragging={isDragging}
+          >
             {children?.(baseWidth, baseHeight)}
           </OverlayLayer>
         </div>
