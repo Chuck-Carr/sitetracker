@@ -4,8 +4,8 @@ import { useState } from "react"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Plus, Building2, MapPin, ChevronRight } from "lucide-react"
-import { useProjects, useCreateProject } from "@/features/projects/hooks/use-projects"
+import { Plus, Building2, MapPin, ChevronRight, Trash2 } from "lucide-react"
+import { useProjects, useCreateProject, useDeleteProject } from "@/features/projects/hooks/use-projects"
 import { createProjectSchema, type CreateProjectInput } from "@/features/projects/schemas"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,12 +15,15 @@ import type { ProjectListItem } from "@/features/projects/lib/service"
 interface ProjectsClientProps {
   initialProjects: ProjectListItem[]
   canCreate?: boolean
+  canDelete?: boolean
 }
 
-export function ProjectsClient({ initialProjects, canCreate = false }: ProjectsClientProps) {
+export function ProjectsClient({ initialProjects, canCreate = false, canDelete = false }: ProjectsClientProps) {
   const [showForm, setShowForm] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const { data: projects = initialProjects } = useProjects()
   const { mutate: createProject, isPending } = useCreateProject()
+  const { mutate: deleteProject, isPending: isDeleting } = useDeleteProject()
 
   const {
     register,
@@ -100,32 +103,65 @@ export function ProjectsClient({ initialProjects, canCreate = false }: ProjectsC
       ) : (
         <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {projects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.id}`}
-              className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-slate-900 truncate">{project.name}</span>
-                  {project.number && (
-                    <span className="text-xs text-slate-400 shrink-0">#{project.number}</span>
+            <div key={project.id} className="flex items-center hover:bg-slate-50 transition-colors">
+              <Link
+                href={`/projects/${project.id}`}
+                className="flex items-center justify-between flex-1 min-w-0 px-5 py-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-900 truncate">{project.name}</span>
+                    {project.number && (
+                      <span className="text-xs text-slate-400 shrink-0">#{project.number}</span>
+                    )}
+                  </div>
+                  {project.address && (
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                      <MapPin size={12} />
+                      <span className="truncate">{project.address}</span>
+                    </div>
                   )}
                 </div>
-                {project.address && (
-                  <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                    <MapPin size={12} />
-                    <span className="truncate">{project.address}</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3 shrink-0 ml-4">
-                <span className="text-xs text-slate-400">
-                  {project._count.devices} device{project._count.devices !== 1 ? "s" : ""}
-                </span>
-                <ChevronRight size={16} className="text-slate-300" />
-              </div>
-            </Link>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <span className="text-xs text-slate-400">
+                    {project._count.devices} device{project._count.devices !== 1 ? "s" : ""}
+                  </span>
+                  <ChevronRight size={16} className="text-slate-300" />
+                </div>
+              </Link>
+              {canDelete && (
+                <div className="pr-4 shrink-0">
+                  {confirmDeleteId === project.id ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-xs text-slate-500">Delete?</span>
+                      <button
+                        onClick={() =>
+                          deleteProject(project.id, { onSuccess: () => setConfirmDeleteId(null) })
+                        }
+                        disabled={isDeleting}
+                        className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {isDeleting ? "Deleting…" : "Confirm"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteId(project.id)}
+                      title="Delete project"
+                      className="text-slate-300 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

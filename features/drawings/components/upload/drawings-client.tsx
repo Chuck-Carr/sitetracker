@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, FileText, ChevronRight, Layers } from "lucide-react"
-import { useDrawingSets, useDrawingSheets } from "@/features/drawings/hooks/use-drawings"
+import { Plus, FileText, ChevronRight, Layers, Trash2 } from "lucide-react"
+import { useDrawingSets, useDrawingSheets, useDeleteDrawingSet } from "@/features/drawings/hooks/use-drawings"
 import { DrawingUploader } from "./drawing-uploader"
 import { Button } from "@/components/ui/button"
 import type { DrawingSetListItem } from "@/features/drawings/lib/service"
@@ -12,11 +12,14 @@ interface DrawingsClientProps {
   projectId: string
   initialDrawingSets: DrawingSetListItem[]
   canUpload?: boolean
+  canDelete?: boolean
 }
 
-export function DrawingsClient({ projectId, initialDrawingSets, canUpload = false }: DrawingsClientProps) {
+export function DrawingsClient({ projectId, initialDrawingSets, canUpload = false, canDelete = false }: DrawingsClientProps) {
   const [showUploader, setShowUploader] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const { data: drawingSets = initialDrawingSets } = useDrawingSets(projectId)
+  const { mutate: deleteSet, isPending: isDeleting } = useDeleteDrawingSet(projectId)
 
   return (
     <div className="space-y-4">
@@ -45,7 +48,7 @@ export function DrawingsClient({ projectId, initialDrawingSets, canUpload = fals
         <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {drawingSets.map((set) => (
             <div key={set.id} className="px-5 py-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <FileText className="text-slate-400 shrink-0" size={18} />
                   <div className="min-w-0">
@@ -55,13 +58,45 @@ export function DrawingsClient({ projectId, initialDrawingSets, canUpload = fals
                     </p>
                   </div>
                 </div>
-                <Link
-                  href={`/projects/${projectId}/drawings?setId=${set.id}`}
-                  className="ml-4 shrink-0 text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                >
-                  View sheets
-                  <ChevronRight size={14} />
-                </Link>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/projects/${projectId}/drawings?setId=${set.id}`}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    View sheets
+                    <ChevronRight size={14} />
+                  </Link>
+                  {canDelete && (
+                    confirmDeleteId === set.id ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-xs text-slate-500">Delete?</span>
+                        <button
+                          onClick={() => {
+                            deleteSet(set.id, { onSuccess: () => setConfirmDeleteId(null) })
+                          }}
+                          disabled={isDeleting}
+                          className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                        >
+                          {isDeleting ? "Deleting…" : "Confirm"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(set.id)}
+                        title="Delete drawing set"
+                        className="text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
 
               {/* Sheet list inline */}

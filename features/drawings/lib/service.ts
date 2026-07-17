@@ -106,6 +106,35 @@ export async function listDrawingSheets(
 
 export type DrawingSheetListItem = Awaited<ReturnType<typeof listDrawingSheets>>[number]
 
+export async function deleteDrawingSet(
+  companyId: string,
+  projectId: string,
+  setId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    // Collect all sheet IDs so we can soft-delete their devices first.
+    // Device.drawingSheet has no onDelete cascade, so we must clear references
+    // before removing the sheets.
+    const sheets = await tx.drawingSheet.findMany({
+      where: { drawingSetId: setId, companyId, projectId },
+      select: { id: true },
+    })
+    const sheetIds = sheets.map((s) => s.id)
+
+    if (sheetIds.length > 0) {
+      await tx.device.updateMany({
+        where: { drawingSheetId: { in: sheetIds }, companyId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      })
+    }
+
+    // Hard-delete the set — cascades to DrawingSheets via schema onDelete: Cascade
+    await tx.drawingSet.delete({
+      where: { id: setId, companyId, projectId },
+    })
+  })
+}
+
 export async function getDrawingSheet(companyId: string, projectId: string, sheetId: string) {
   return prisma.drawingSheet.findFirst({
     where: { id: sheetId, ...projectScope(companyId, projectId) },

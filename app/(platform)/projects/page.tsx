@@ -19,7 +19,7 @@ export default async function ProjectsPage() {
         </div>
       </div>
 
-      <ProjectsClient initialProjects={projects} canCreate={canCreate} />
+      <ProjectsClient initialProjects={projects} canCreate={canCreate} canDelete={canCreate} />
     </div>
     </div>
   )

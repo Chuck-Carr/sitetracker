@@ -131,6 +131,26 @@ export function useDrawingSheets(projectId: string, drawingSetId?: string) {
   })
 }
 
+// ─── Delete drawing set ──────────────────────────────────────────────────────
+
+async function deleteDrawingSetRequest(variables: { projectId: string; setId: string }) {
+  const res = await fetch(
+    `/api/projects/${variables.projectId}/drawing-sets/${variables.setId}`,
+    { method: "DELETE" },
+  )
+  if (!res.ok) throw new Error("Failed to delete drawing set")
+}
+
+export function useDeleteDrawingSet(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (setId: string) => deleteDrawingSetRequest({ projectId, setId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: drawingKeys.sets(projectId) })
+    },
+  })
+}
+
 // ─── Sheet with presigned URL ─────────────────────────────────────────────────
 
 async function fetchDrawingSheetWithUrl(projectId: string, sheetId: string) {
