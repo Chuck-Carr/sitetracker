@@ -1,4 +1,4 @@
-# SiteStatus — Caddy reverse proxy
+# SiteStratus — Caddy reverse proxy
 #
 # DOMAIN and ACME_EMAIL are injected from docker-compose.prod.yml environment.
 # Caddy automatically obtains and renews Let's Encrypt certificates.
@@ -27,4 +27,8 @@ www.{$DOMAIN} {
 
     # Compress responses
     encode gzip
+}
+
+files.{$DOMAIN} {
+    reverse_proxy minio:9000
 }

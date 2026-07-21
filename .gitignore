@@ -42,7 +42,7 @@ next-env.d.ts
 
 /app/generated/prisma
 
-# SiteStatus
+# SiteStratus
 .env.local
 .env.production
 !.env.example

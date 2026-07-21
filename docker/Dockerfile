@@ -16,6 +16,9 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

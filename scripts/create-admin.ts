@@ -1,11 +1,11 @@
 /**
- * SiteStatus — Create First Admin
+ * SiteStratus — Create First Admin
  *
  * Interactive script that creates the initial company and admin user.
  * Run AFTER `prisma migrate deploy` and `npm run db:seed`.
  *
  * Usage (from the project root on the server):
- *   DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/sitestatus" \
+ *   DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/sitestratus" \
  *     npx tsx scripts/create-admin.ts
  */
 import * as dotenv from "dotenv"
@@ -33,7 +33,7 @@ const prompt = (question: string): Promise<string> =>
   new Promise(resolve => rl.question(question, resolve))
 
 async function main() {
-  console.log("\n🔐  SiteStatus — Create First Admin\n")
+  console.log("\n🔐  SiteStratus — Create First Admin\n")
 
   const companyName = (await prompt("Company name: ")).trim()
   const companySlug = (await prompt("Company slug (lowercase letters, numbers, hyphens — e.g. acme): ")).trim()
