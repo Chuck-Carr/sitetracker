@@ -4,7 +4,7 @@ import { KeyRound } from "lucide-react"
 export function MobileHeader() {
   return (
     <header className="xl:hidden flex flex-none items-center justify-between h-12 px-4 bg-slate-900 text-white border-b border-slate-700">
-      <span className="text-base font-bold">SiteTracker</span>
+      <span className="text-base font-bold">SiteStratus</span>
       <Link
         href="/account"
         title="Change password"

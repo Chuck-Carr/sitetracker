@@ -3,7 +3,7 @@ import { QueryProvider } from "@/components/layout/query-provider"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "SiteTracker",
+  title: "SiteStratus",
   description: "Drawing-centric field execution platform for construction trades",
 }
 

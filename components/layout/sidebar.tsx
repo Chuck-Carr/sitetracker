@@ -25,7 +25,7 @@ export function Sidebar() {
     <aside className="flex flex-col w-60 min-h-full bg-slate-900 text-slate-100">
       {/* Logo */}
       <div className="flex items-center h-16 px-6 border-b border-slate-700">
-        <span className="text-lg font-bold tracking-tight">SiteTracker</span>
+        <span className="text-lg font-bold tracking-tight">SiteStratus</span>
       </div>
 
       {/* Nav */}
