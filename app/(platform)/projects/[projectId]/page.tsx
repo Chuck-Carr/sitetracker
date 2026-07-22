@@ -115,9 +115,6 @@ export default async function ProjectPage({
                 />
               </div>
               <div className="space-y-1.5 text-sm">
-              <p className="font-semibold text-slate-900 tabular-nums">
-                  {totalPoints} <span className="font-normal text-slate-500">of {maxPoints} pts</span>
-                </p>
                 <p className="text-slate-500">
                   {counts.TESTED ?? 0} fully tested
                 </p>
