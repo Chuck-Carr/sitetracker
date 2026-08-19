@@ -5,6 +5,7 @@ import { X, Pencil, Trash2, AlertCircle } from "lucide-react"
 import type { DeviceStatus } from "@/app/generated/prisma/client"
 import type { DeviceListItem } from "@/features/devices/lib/service"
 import { DeviceStageStepper } from "./DeviceStageStepper"
+import { DevicePhotoGallery } from "./DevicePhotoGallery"
 import { useUpdateDeviceStatus, useDeleteDevice } from "@/features/devices/hooks/use-sheet-devices"
 import { cn } from "@/lib/utils/cn"
 
@@ -24,11 +25,20 @@ interface Props {
   projectId: string
   sheetId: string
   isAdmin: boolean
+  canManagePhotos: boolean
   onClose: () => void
   onEditRequest: () => void   // admin only: open AddEditDevicePanel in edit mode
 }
 
-export function DeviceDetailPanel({ device, projectId, sheetId, isAdmin, onClose, onEditRequest }: Props) {
+export function DeviceDetailPanel({
+  device,
+  projectId,
+  sheetId,
+  isAdmin,
+  canManagePhotos,
+  onClose,
+  onEditRequest,
+}: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const updateStatus = useUpdateDeviceStatus(projectId, sheetId)
   const deleteDevice = useDeleteDevice(projectId, sheetId)
@@ -115,6 +125,9 @@ export function DeviceDetailPanel({ device, projectId, sheetId, isAdmin, onClose
             </p>
           )}
         </div>
+
+        {/* Photos */}
+        <DevicePhotoGallery projectId={projectId} deviceId={device.id} canManage={canManagePhotos} />
 
         {/* Device metadata */}
         <div className="space-y-3">

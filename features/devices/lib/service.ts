@@ -178,3 +178,86 @@ export async function deleteDevice(
     select: { id: true },
   })
 }
+
+// ─── Device Photos ────────────────────────────────────────────────────────────
+
+export async function listDevicePhotos(
+  companyId: string,
+  projectId: string,
+  deviceId: string,
+) {
+  return prisma.devicePhoto.findMany({
+    where: { ...projectScope(companyId, projectId), deviceId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      originalFileName: true,
+      fileSizeBytes: true,
+      mimeType: true,
+      createdAt: true,
+      uploadedBy: { select: { id: true, name: true } },
+    },
+  })
+}
+
+export type DevicePhotoListItem = Awaited<ReturnType<typeof listDevicePhotos>>[number]
+
+export interface CreateDevicePhotoInput {
+  storageKey: string
+  originalFileName: string
+  fileSizeBytes: number
+  mimeType: string
+}
+
+export async function createDevicePhoto(
+  companyId: string,
+  projectId: string,
+  deviceId: string,
+  userId: string,
+  input: CreateDevicePhotoInput,
+) {
+  return prisma.devicePhoto.create({
+    data: {
+      companyId,
+      projectId,
+      deviceId,
+      storageKey: input.storageKey,
+      originalFileName: input.originalFileName,
+      fileSizeBytes: BigInt(input.fileSizeBytes),
+      mimeType: input.mimeType,
+      uploadedById: userId,
+    },
+    select: {
+      id: true,
+      originalFileName: true,
+      fileSizeBytes: true,
+      mimeType: true,
+      createdAt: true,
+      uploadedBy: { select: { id: true, name: true } },
+    },
+  })
+}
+
+export async function getDevicePhoto(
+  companyId: string,
+  projectId: string,
+  deviceId: string,
+  photoId: string,
+) {
+  return prisma.devicePhoto.findFirst({
+    where: { id: photoId, deviceId, ...projectScope(companyId, projectId) },
+    select: { id: true, storageKey: true, mimeType: true, originalFileName: true },
+  })
+}
+
+export async function deleteDevicePhoto(
+  companyId: string,
+  projectId: string,
+  deviceId: string,
+  photoId: string,
+) {
+  return prisma.devicePhoto.delete({
+    where: { id: photoId, deviceId, ...projectScope(companyId, projectId) },
+    select: { id: true, storageKey: true },
+  })
+}

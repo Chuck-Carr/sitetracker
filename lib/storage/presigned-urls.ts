@@ -61,3 +61,15 @@ export function drawingStorageKey(companyId: string, projectId: string, filename
 export function thumbnailStorageKey(companyId: string, projectId: string, sheetId: string): string {
   return `companies/${companyId}/projects/${projectId}/thumbnails/${sheetId}.png`
 }
+
+/**
+ * Builds the storage key for a device photo.
+ */
+export function devicePhotoStorageKey(
+  companyId: string,
+  projectId: string,
+  deviceId: string,
+  filename: string,
+): string {
+  return `companies/${companyId}/projects/${projectId}/devices/${deviceId}/photos/${filename}`
+}

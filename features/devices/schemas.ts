@@ -8,6 +8,11 @@ export function isAdmin(role: UserRole): boolean {
   return role === "COMPANY_ADMIN" || role === "SUPER_ADMIN" || role === "PROJECT_MANAGER"
 }
 
+/** Admins and technicians can upload/delete device photos (same roles that can change device status). */
+export function canManageDevicePhotos(role: UserRole): boolean {
+  return isAdmin(role) || role === "TECHNICIAN"
+}
+
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
 export const createDeviceSchema = z.object({
@@ -48,3 +53,22 @@ export const techUpdateDeviceSchema = z.object({
 export type CreateDeviceInput = z.infer<typeof createDeviceSchema>
 export type AdminUpdateDeviceInput = z.infer<typeof adminUpdateDeviceSchema>
 export type TechUpdateDeviceInput = z.infer<typeof techUpdateDeviceSchema>
+
+// ─── Device photos ────────────────────────────────────────────────────────────
+
+const ALLOWED_PHOTO_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
+
+export const presignedDevicePhotoSchema = z.object({
+  filename: z.string().min(1),
+  contentType: z.enum(ALLOWED_PHOTO_CONTENT_TYPES),
+})
+
+export const completeDevicePhotoUploadSchema = z.object({
+  storageKey: z.string().min(1),
+  originalFileName: z.string().min(1),
+  fileSizeBytes: z.number().int().positive(),
+  mimeType: z.enum(ALLOWED_PHOTO_CONTENT_TYPES),
+})
+
+export type PresignedDevicePhotoInput = z.infer<typeof presignedDevicePhotoSchema>
+export type CompleteDevicePhotoUploadInput = z.infer<typeof completeDevicePhotoUploadSchema>

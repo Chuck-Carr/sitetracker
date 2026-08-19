@@ -27,6 +27,7 @@ export function DrawingViewerClient({ projectId, sheet, pdfUrl, userRole }: Draw
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null)
 
   const admin = isAdmin(userRole)
+  const canManagePhotos = admin || userRole === "TECHNICIAN"
 
   const {
     selectedDeviceId,
@@ -162,6 +163,7 @@ export function DrawingViewerClient({ projectId, sheet, pdfUrl, userRole }: Draw
             projectId={projectId}
             sheetId={sheet.id}
             isAdmin={admin}
+            canManagePhotos={canManagePhotos}
             onClose={handleCloseDetail}
             onEditRequest={handleEditRequest}
           />
